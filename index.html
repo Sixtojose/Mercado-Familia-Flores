@@ -12,47 +12,35 @@
 <meta name="google-site-verification" content="BzT6kl8ClAInO-WipESPq4MeRmMPOuvmyCWF3KsMdio" />
 <title>Mercado Família Flores</title>
 <link rel="preconnect" href="https://www.gstatic.com">
-<link rel="preconnect" href="https://avkxnwyboiqeeqbkjccy.supabase.co">
+<link rel="preconnect" href="https://portal-familia-flores-re-8ad87-default-rtdb.firebaseio.com">
 <link rel="dns-prefetch" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Work+Sans:wght@400;500;600;700&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script>
-  /* Banco de dados: Supabase (tabela kv) e fotos/vídeos: Supabase Storage (bucket midias) */
-  const SB_URL='https://avkxnwyboiqeeqbkjccy.supabase.co';
-  const SB_KEY='sb_publishable_elZ2YqB4drf-BKEQu0HdCg_tmhZgwWL';
-  const OLD_DB='https://portal-familia-flores-re-8ad87-default-rtdb.firebaseio.com'; // só para copiar os dados antigos
-  const sbc=supabase.createClient(SB_URL,SB_KEY);
-  const tentados=new Set();
-  window.fbDB={};
-  window.fbRef=(db,path)=>path;
-  window.fbSet=async(path,val)=>{
-    const {error}=await sbc.from('kv').upsert({path,value:val,atualizado_em:new Date().toISOString()},{onConflict:'path'});
-    if(error) throw error;
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, set, get, enableLogging } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+  import { getStorage, ref as storageRef, uploadBytes, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+  const firebaseConfig = {
+    apiKey: "AIzaSyAAPFyCcZR9xLCJ0WU0RYHSr3vdQmodgAw",
+    authDomain: "portal-familia-flores-re-8ad87.firebaseapp.com",
+    databaseURL: "https://portal-familia-flores-re-8ad87-default-rtdb.firebaseio.com",
+    projectId: "portal-familia-flores-re-8ad87",
+    storageBucket: "portal-familia-flores-re-8ad87.firebasestorage.app",
+    messagingSenderId: "932432761698",
+    appId: "1:932432761698:web:09215e3fe04224d87c923b"
   };
-  window.fbGet=async(path)=>{
-    let v=null;
-    const {data,error}=await sbc.from('kv').select('value').eq('path',path).maybeSingle();
-    if(error) throw error;
-    if(data){ v=data.value; }
-    else if(!tentados.has(path)){
-      tentados.add(path);
-      try{ // primeira vez: copia do Firebase antigo, se ainda existir
-        const r=await fetch(OLD_DB+'/'+path+'.json');
-        if(r.ok){ const old=await r.json(); if(old!==null){ v=old; await window.fbSet(path,old); } }
-      }catch(e){}
-    }
-    return {exists:()=>v!==null&&v!==undefined,val:()=>v};
-  };
-  window.fbUploadFile=async(file,path)=>{
-    path=path.replace(/[^a-zA-Z0-9._\/-]/g,'_');
-    const {error}=await sbc.storage.from('midias').upload(path,file,{contentType:file.type||undefined,upsert:false});
-    if(error) throw error;
-    return sbc.storage.from('midias').getPublicUrl(path).data.publicUrl;
-  };
-  window.fbReady=true;
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  window.fbDB = db; window.fbRef = ref; window.fbSet = set; window.fbGet = get;
+  const storage = getStorage(app);
+  window.fbUploadFile = async (file, path) => { const target=storageRef(storage,path); await uploadBytes(target,file); return await getDownloadURL(target); };
+  window.fbUploadFileResumable = (file, path, onProgress) => new Promise((resolve,reject)=>{
+    const task=uploadBytesResumable(storageRef(storage,path),file);
+    task.on('state_changed',snap=>{ if(onProgress) onProgress(snap.bytesTransferred/snap.totalBytes*100); },reject,async()=>{ try{resolve(await getDownloadURL(task.snapshot.ref));}catch(e){reject(e);} });
+  });
+  window.fbReady = true;
   document.dispatchEvent(new Event('firebase-ready'));
 </script>
 <style>
@@ -250,6 +238,29 @@ html::-webkit-scrollbar-thumb:hover { background: #999; }
 #customScrollThumb{position:absolute;left:2px;top:0;width:8px;min-height:42px;border-radius:10px;background:#777;border:1px solid rgba(255,255,255,.65);box-shadow:0 1px 5px rgba(0,0,0,.25);cursor:grab;touch-action:none;}
 #customScrollThumb:active{background:#555;cursor:grabbing;}
 </style>
+<style>
+.short-actions{display:flex;gap:4px;padding:6px 10px;border-top:1px solid var(--line);flex-wrap:wrap;align-items:center}
+.short-act{border:0;background:transparent;font-size:15px;padding:9px 11px;border-radius:10px;cursor:pointer;color:var(--ink);display:inline-flex;gap:5px;align-items:center;font-family:inherit}
+.short-act:active,.short-act.on{background:rgba(40,140,75,.13)}
+.short-panel{padding:10px 14px 14px;border-top:1px solid var(--line);font-size:13px;color:var(--ink)}
+.short-panel label{display:flex;align-items:center;gap:8px;margin:10px 0}
+.short-panel label span{min-width:74px}
+.short-panel input[type=range]{flex:1;accent-color:var(--green)}
+.short-panel select,.short-panel input[type=text]{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);font:inherit;box-sizing:border-box}
+.short-help{font-size:12px;color:var(--muted);margin-top:6px}
+.short-comment{padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
+.short-comment small{color:var(--muted);margin-left:6px}
+.short-comment button{border:0;background:transparent;color:#d64a62;cursor:pointer;float:right;font-size:16px}
+.short-comment-row{display:flex;gap:8px;margin-top:10px}
+.short-comment-row button{white-space:nowrap}
+.music-section{margin-bottom:14px;background:var(--paper);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.music-section summary{padding:13px 14px;cursor:pointer;font-family:'Fredoka',sans-serif;color:var(--green-deep);font-size:16px}
+.music-section summary small{color:var(--muted);font-family:inherit;font-size:12px}
+.music-track{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;border-top:1px solid var(--line);font-size:13px}
+.music-track strong{overflow-wrap:anywhere}
+.music-track button{border:1px solid var(--line);background:var(--cream);border-radius:10px;padding:8px 12px;cursor:pointer;font-size:15px;color:var(--ink)}
+.music-track.playing{background:rgba(40,140,75,.10)}
+</style>
 </head>
 <body>
 
@@ -361,7 +372,10 @@ window.addEventListener('load', ()=>{
     <section class="profile-tab-content" id="profileTabContent">
       <div class="profile-panel active" id="profilePanelPublished"><h3>Vídeos publicados</h3><div id="myPublishedVideos" class="profile-video-list"><p class="profile-empty">Você ainda não publicou vídeos.</p></div></div>
       <div class="profile-panel" id="profilePanelLiked"><h3>Vídeos curtidos</h3><div id="myLikedVideos" class="profile-video-list"><p class="profile-empty">Você ainda não curtiu vídeos.</p></div></div>
-      <div class="profile-panel" id="profilePanelAdd"><h3>Adicionar conteúdo</h3><p class="profile-help">Publique vídeo, áudio, foto ou música no seu perfil.</p><label class="profile-field-label" for="profileVideoTitle">Título</label><input id="profileVideoTitle" class="profile-video-input" type="text" maxlength="70" placeholder="Ex.: Meu conteúdo"><label class="profile-field-label" for="profileMediaFile">Enviar arquivo</label><input id="profileMediaFile" class="profile-video-input" type="file" accept="video/*,audio/*,image/*"><label class="profile-field-label" for="profileVideoUrl">Ou cole um link de mídia/música</label><input id="profileVideoUrl" class="profile-video-input" type="url" placeholder="https://... "><button type="button" class="btn btn-primary" id="publishProfileVideoBtn">Publicar conteúdo</button><p id="profileVideoMessage" class="profile-help" aria-live="polite"></p></div>
+      <div class="profile-panel" id="profilePanelAdd"><h3>Adicionar conteúdo</h3><p class="profile-help">Escolha o que quer publicar. O arquivo vem do seu dispositivo.</p>
+        <div style="display:flex;gap:8px;margin:8px 0 12px;"><button type="button" class="btn btn-primary" id="addTypeShort" style="flex:1;">🎬 Short</button><button type="button" class="btn btn-outline" id="addTypeMusic" style="flex:1;">🎵 Música</button></div>
+        <div id="profileMusicFields" style="display:none;"><label class="profile-field-label" for="profileVideoTitle">Título da música (opcional)</label><input id="profileVideoTitle" class="profile-video-input" type="text" maxlength="70" placeholder="Ex.: Minha música"><label class="profile-field-label" for="profileMusicSection">Seção</label><input id="profileMusicSection" class="profile-video-input" type="text" list="musicSectionsList" maxlength="40" placeholder="Escolha ou crie: Louvor, Forró, Infantil…"><datalist id="musicSectionsList"></datalist></div>
+        <label class="profile-field-label" for="profileMediaFile" id="profileFileLabel">Enviar vídeo (Short)</label><input id="profileMediaFile" class="profile-video-input" type="file" accept="video/*" multiple><small id="profileFileHint" style="display:block;color:var(--muted);margin-top:5px;">Você pode selecionar vários vídeos de uma vez.</small><button type="button" class="btn btn-primary" id="publishProfileVideoBtn">Publicar conteúdo</button><p id="profileVideoMessage" class="profile-help" aria-live="polite"></p></div>
       <div class="profile-panel" id="profilePanelDiscover"><h3>O que você procura?</h3><p class="profile-help">Acesse rapidamente os serviços do Mercado Família Flores.</p><div class="more-grid">
         <button class="more-card" id="drawerCart"><span>🛒</span><strong>Meu carrinho</strong><small>Ver produtos adicionados</small></button>
         <button class="more-card" id="contactBtn"><span>📞</span><strong>Contato</strong><small>Fale com a nossa equipe</small></button>
@@ -401,6 +415,7 @@ window.addEventListener('load', ()=>{
 .music-add-box{padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--paper);}
 .profile-video-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--paper);font-size:13px;}
 .profile-video-item a{color:var(--green-deep);font-weight:600;overflow-wrap:anywhere;}
+.profile-video-item .cover{width:96px;height:128px;object-fit:cover;border-radius:10px;background:#000;display:block;pointer-events:none;}
 .profile-video-item button{border:0;background:transparent;font-size:22px;color:#d64a62;cursor:pointer;}
 .profile-field-label{display:block;font-size:12px;font-weight:600;margin:10px 0 5px;color:var(--ink);}
 .profile-video-input{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);font:inherit;box-sizing:border-box;}
@@ -562,17 +577,8 @@ window.addEventListener('load', ()=>{
         </section>
         <section class="admin-panel">
           <h2>📱 Shorts & Vídeos</h2>
-          <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">Adiciona links de YouTube Shorts, Instagram Reels ou TikTok. Aparecem para os clientes no menu.</p>
-          <div class="field"><label>Título do vídeo</label><input id="shortTitle" placeholder="Ex: Promoção da semana!"></div>
-          <div class="field"><label>Plataforma</label>
-      <select id="shortPlatform">
-        <option value="kwai">📹 Kwai</option>
-        <option value="tiktok">🎵 TikTok</option>
-        <option value="youtube">▶️ YouTube Shorts</option>
-        <option value="instagram">📸 Instagram Reels</option>
-      </select>
-    </div>
-    <div class="field"><label>Link do vídeo</label><input id="shortUrl" placeholder="Cole o link do Kwai ou TikTok..."></div>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">Envie vídeos direto do seu dispositivo. Eles aparecem para os clientes na aba Short.</p>
+          <div class="field" id="shortFileField"><label>Vídeos do dispositivo</label><input id="shortFile" type="file" accept="video/*" multiple><div id="shortProgress" style="font-size:12px;color:var(--muted);margin-top:6px;"></div></div>
           <button class="btn btn-primary" id="addShortBtn">+ Adicionar vídeo</button>
           <div id="shortAdminList" style="margin-top:14px;display:flex;flex-direction:column;gap:8px;"></div>
         </section>
@@ -822,16 +828,9 @@ window.addEventListener('load', ()=>{
 <div id="viewMusic" style="display:none;">
   <main style="max-width:760px;margin:0 auto;padding:20px 16px 90px;">
     <h2 style="font-family:'Fredoka',sans-serif;color:var(--green-deep);margin:0 0 8px;">♫ Músicas</h2>
-    <p style="font-size:13px;color:var(--muted);margin:0 0 16px;">Escute músicas publicadas pelos usuários ou abra faixas de plataformas compatíveis.</p>
-    <section class="music-add-box">
-      <label class="profile-field-label" for="musicPlatformUrl">Link de música ou playlist</label>
-      <input id="musicPlatformUrl" class="profile-video-input" type="url" placeholder="Spotify, YouTube, SoundCloud, Apple Music…">
-      <button type="button" class="btn btn-primary" id="openMusicLinkBtn" style="margin-top:10px;width:100%;">Abrir música</button>
-      <p class="profile-help">O player incorporado aparece quando a plataforma permite. Caso contrário, abrimos a página oficial.</p>
-    </section>
-    <div id="musicExternalPlayer" style="margin:14px 0;"></div>
-    <h3 style="font-family:'Fredoka',sans-serif;color:var(--green-deep);font-size:18px;">Publicadas pela comunidade</h3>
-    <div id="communityMusicList" class="profile-video-list"><p class="profile-empty">Ainda não há músicas publicadas.</p></div>
+    <p style="font-size:13px;color:var(--muted);margin:0 0 16px;">Músicas baixadas, organizadas por seção.</p>
+    <div id="musicPlayerBox" style="margin:0 0 14px;position:sticky;top:0;z-index:5;"></div>
+    <div id="communityMusicList"><p class="profile-empty">Ainda não há músicas publicadas.</p></div>
     <footer class="company-footer"><strong>Mercado Família Flores</strong><span id="companyFooterAddress">📍 Rua Vicente Mouta Rodrigues, 554 — Boa Vista/RR</span><span id="companyFooterPhone">☎ (95) 99125-3420</span><span id="companyFooterEmail">✉ burgosislen@gmail.com</span></footer>
   </main>
 </div>
@@ -881,6 +880,7 @@ async function saveCart(){ try{ await fbWrite('mercado/carrinho',cart); }catch(e
 
 /* Views */
 function showView(id){
+  if(id!=='viewShorts'){document.querySelectorAll('#shortsList video').forEach(v=>{try{v.pause();}catch(e){}});}
   ['viewStore','viewLogin','viewAdmin','viewCart','viewPedidos','viewJogos','viewShorts','viewMore','viewMusic'].forEach(v=>{const el=$(v);if(el)el.style.display=v===id?'':'none';});
   const mainMenus=['viewStore','viewShorts','viewMusic','viewJogos','viewMore'];
   const topbar=$('mainTopbar');
@@ -1183,61 +1183,159 @@ async function loadProfileVideos(tab){
   const all=await getProfileVideoData();
   const uploaded=(await fbRead('mercado/midiasUsuarios'))||[];
   const mine=[...all.filter(v=>v.owner===currentProfileKey()),...uploaded.filter(v=>v.owner===currentProfileKey())];
-  const liked=all.filter(v=>(v.likedBy||[]).includes(currentProfileKey()));
+  const liked=[...all,...uploaded].filter(v=>(v.likedBy||[]).includes(currentProfileKey()));
   const target=$(tab==='liked'?'myLikedVideos':'myPublishedVideos');
   const list=tab==='liked'?liked:mine;
   if(!target)return;
-  target.innerHTML=list.length?list.map((v)=>`<div class="profile-video-item"><a href="${String(v.url).replace(/"/g,'&quot;')}" target="_blank" rel="noopener">${v.kind==='audio'?'♫':v.kind==='image'?'▧':v.kind==='video'?'▶':'♪'} ${String(v.title||'Conteúdo').replace(/</g,'&lt;')}</a>${tab==='published'?'<button type="button" data-remove-profile-video="'+String(v.id)+'" aria-label="Excluir conteúdo">×</button>':'<span>♥</span>'}</div>`).join(''):'<p class="profile-empty">'+(tab==='liked'?'Você ainda não curtiu vídeos.':'Você ainda não publicou vídeos.')+'</p>';
+  const coverOf=v=>{
+    const u=String(v.url||'').replace(/"/g,'&quot;');
+    if(v.kind==='video') return `<a href="${u}" target="_blank" rel="noopener" aria-label="Abrir vídeo"><video class="cover" src="${u}#t=0.1" preload="metadata" muted playsinline></video></a>`;
+    if(v.kind==='image') return `<a href="${u}" target="_blank" rel="noopener" aria-label="Abrir foto"><img class="cover" src="${u}" alt="" loading="lazy"></a>`;
+    return `<a href="${u}" target="_blank" rel="noopener">${v.kind==='audio'?'♫':'♪'} ${String(v.title||'Conteúdo').replace(/</g,'&lt;')}${v.section?' · 📂 '+String(v.section).replace(/</g,'&lt;'):''}</a>`;
+  };
+  target.innerHTML=list.length?list.map((v)=>`<div class="profile-video-item">${coverOf(v)}${tab==='published'?'<button type="button" data-remove-profile-video="'+String(v.id)+'" aria-label="Excluir conteúdo">×</button>':'<span>♥</span>'}</div>`).join(''):'<p class="profile-empty">'+(tab==='liked'?'Você ainda não curtiu vídeos.':'Você ainda não publicou vídeos.')+'</p>';
   target.querySelectorAll('[data-remove-profile-video]').forEach(btn=>btn.addEventListener('click',async()=>{const id=btn.dataset.removeProfileVideo;const fresh=await getProfileVideoData();await fbWrite('mercado/videosUsuarios',fresh.filter(v=>!(v.id===id&&v.owner===currentProfileKey())));const media=(await fbRead('mercado/midiasUsuarios'))||[];await fbWrite('mercado/midiasUsuarios',media.filter(v=>!(v.id===id&&v.owner===currentProfileKey())));loadProfileVideos('published');}));
 }
 document.querySelectorAll('.profile-tab').forEach(btn=>btn.addEventListener('click',()=>activateProfileTab(btn.dataset.profileTab)));
-$('publishProfileVideoBtn').addEventListener('click',async()=>{
+let profileUploadRunning=false;
+function showProfileUploadTray(){
+  let tray=$('profileUploadTray');
+  if(!tray){
+    tray=document.createElement('div');tray.id='profileUploadTray';
+    tray.style.cssText='position:fixed;right:12px;bottom:88px;z-index:9998;width:min(360px,calc(100vw - 24px));background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:13px;box-shadow:0 8px 28px rgba(0,0,0,.22);';
+    tray.innerHTML='<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;"><strong style="color:var(--green-deep);font-size:14px;">⬆️ Publicações em andamento</strong><span id="profileUploadCount" style="font-size:12px;color:var(--muted);"></span></div><p id="profileUploadStatus" style="font-size:12px;margin:8px 0;color:var(--ink);">Preparando envio…</p><div style="height:8px;background:var(--line);border-radius:10px;overflow:hidden;"><div id="profileUploadBar" style="height:100%;width:0%;background:var(--green);transition:width .2s;"></div></div><small id="profileUploadPercent" style="display:block;text-align:right;margin-top:5px;color:var(--muted);">0%</small>';
+    document.body.appendChild(tray);
+  }
+  return tray;
+}
+function updateProfileUploadTray(status,percent,count){
+  showProfileUploadTray();
+  $('profileUploadStatus').textContent=status;
+  $('profileUploadCount').textContent=count||'';
+  $('profileUploadBar').style.width=Math.max(0,Math.min(100,percent||0))+'%';
+  $('profileUploadPercent').textContent=Math.round(percent||0)+'%';
+}
+function profileFileKind(file){
+  const ext=(file.name.split('.').pop()||'').toLowerCase();
+  const mime=file.type||'';
+  if(mime.startsWith('video/')||['mp4','mov','m4v','webm','3gp','mkv','avi'].includes(ext))return 'video';
+  if(mime.startsWith('audio/')||['mp3','m4a','wav','ogg','aac','opus','flac'].includes(ext))return 'audio';
+  if(mime.startsWith('image/')||['jpg','jpeg','png','webp','gif','heic'].includes(ext))return 'image';
+  return 'file';
+}
+let profileAddType='short';
+function setProfileAddType(t){
+  profileAddType=t;
+  const music=t==='music';
+  $('addTypeShort').className='btn '+(music?'btn-outline':'btn-primary');
+  $('addTypeMusic').className='btn '+(music?'btn-primary':'btn-outline');
+  $('profileMusicFields').style.display=music?'':'none';
+  const f=$('profileMediaFile');f.accept=music?'audio/*':'video/*';f.value='';
+  $('profileFileLabel').textContent=music?'Enviar música (arquivo de áudio)':'Enviar vídeo (Short)';
+  $('profileFileHint').textContent=music?'Você pode selecionar várias músicas de uma vez. Elas vão para a seção escolhida.':'Você pode selecionar vários vídeos de uma vez.';
+  if(music)refreshMusicSections();
+}
+async function refreshMusicSections(){
+  try{
+    const media=toArr(await fbRead('mercado/midiasUsuarios'));
+    const secs=[...new Set(media.filter(m=>m.kind==='audio'&&m.section).map(m=>m.section))].sort((x,y)=>x.localeCompare(y,'pt-BR'));
+    $('musicSectionsList').innerHTML=secs.map(x=>`<option value="${escShort(x)}">`).join('');
+  }catch(e){}
+}
+$('addTypeShort').addEventListener('click',()=>setProfileAddType('short'));
+$('addTypeMusic').addEventListener('click',()=>setProfileAddType('music'));
+async function publishProfileFile(file,title,index,total){
+  if(!window.fbUploadFileResumable) throw new Error('O armazenamento ainda não ficou pronto. Atualize a página e tente novamente.');
+  const safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+  const path='usuarios/'+currentProfileKey()+'/'+Date.now()+'_'+index+'_'+safeName;
+  const kind=profileFileKind(file);
+  const mediaUrl=await window.fbUploadFileResumable(file,path,p=>{
+    const overall=((index-1)+(p/100))/total*100;
+    updateProfileUploadTray('Enviando '+index+' de '+total+': '+file.name,overall,index+'/'+total);
+  });
+  const media=(await fbRead('mercado/midiasUsuarios'))||[];
+  media.push({id:'m'+Date.now()+'_'+index,owner:currentProfileKey(),ownerName:pendingGoogleProfile.name||'Cliente',title:title||file.name.replace(/\.[^.]+$/,''),url:mediaUrl,kind,section:kind==='audio'?(($('profileMusicSection')&&$('profileMusicSection').value)||'').trim().slice(0,40):'',fileName:file.name,likedBy:[],createdAt:new Date().toISOString()});
+  await fbWrite('mercado/midiasUsuarios',media);
+}
+$('publishProfileVideoBtn').addEventListener('click',()=>{
   const msg=$('profileVideoMessage');
   if(!pendingGoogleProfile){msg.textContent='Conecte sua conta Google antes de publicar.';return;}
-  const title=$('profileVideoTitle').value.trim()||'Meu conteúdo';
-  const file=$('profileMediaFile')?.files?.[0];
-  const url=$('profileVideoUrl').value.trim();
-  if(!file&&!/^https?:\/\//i.test(url)){msg.textContent='Escolha um arquivo ou informe um link válido.';return;}
-  msg.textContent='Publicando…';
-  try{
-    let mediaUrl=url, kind='link', fileName='';
-    if(file){
-      if(!window.fbUploadFile) throw new Error('O armazenamento ainda não ficou pronto. Atualize a página e tente novamente.');
-      kind=file.type.startsWith('video/')?'video':file.type.startsWith('audio/')?'audio':file.type.startsWith('image/')?'image':'file';
-      fileName=file.name;
-      mediaUrl=await window.fbUploadFile(file,'usuarios/'+currentProfileKey()+'/'+Date.now()+'_'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_'));
-    }else{
-      kind=/spotify|music\.apple|soundcloud|youtube|youtu\.be/i.test(url)?'music':'link';
+  const files=Array.from($('profileMediaFile')?.files||[]);
+  const url='';
+  const title=$('profileVideoTitle').value.trim();
+  if(!files.length&&!/^https?:\/\//i.test(url)){msg.textContent='Selecione um ou mais arquivos do seu dispositivo.';return;}
+  const wanted=profileAddType==='music'?'audio':'video';
+  const wrong=files.find(f=>profileFileKind(f)!==wanted);
+  if(wrong){msg.textContent=(profileAddType==='music'?'Escolha apenas arquivos de áudio: ':'Escolha apenas vídeos: ')+wrong.name;return;}
+  if(profileUploadRunning){msg.textContent='Já existe um envio em andamento. Aguarde ele terminar.';return;}
+  profileUploadRunning=true;
+  const total=files.length+(url?1:0);
+  msg.textContent='Envio iniciado. Você pode continuar navegando pelo site; o envio ficará nesta página em segundo plano.';
+  showProfileUploadTray();
+  $('publishProfileVideoBtn').disabled=true;
+  // Não aguardamos esta tarefa no clique: a navegação dentro do site continua liberada.
+  (async()=>{
+    try{
+      for(let i=0;i<files.length;i++) await publishProfileFile(files[i],files.length>1?'':title,i+1,total);
+      if(url){
+        const kind=/spotify|music\.apple|soundcloud|youtube|youtu\.be/i.test(url)?'music':'link';
+        const media=(await fbRead('mercado/midiasUsuarios'))||[];
+        media.push({id:'m'+Date.now()+'_link',owner:currentProfileKey(),ownerName:pendingGoogleProfile.name||'Cliente',title:title||'Meu conteúdo',url,kind,fileName:'',likedBy:[],createdAt:new Date().toISOString()});
+        await fbWrite('mercado/midiasUsuarios',media);
+        updateProfileUploadTray('Publicando link…',100,total+'/'+total);
+      }
+      $('profileVideoTitle').value='';refreshMusicSections();$('profileMediaFile').value='';
+      msg.textContent='Todas as publicações foram concluídas!';
+      updateProfileUploadTray('Todas as publicações foram concluídas!',100,total+'/'+total);
+      loadProfileVideos('published');
+      setTimeout(()=>{const tray=$('profileUploadTray');if(tray)tray.remove();},6000);
+    }catch(e){
+      msg.textContent='Falha no envio: '+(e.message||'verifique a conexão e as permissões do Firebase Storage.');
+      updateProfileUploadTray('O envio foi interrompido. Verifique a conexão e tente novamente.',0,'');
+    }finally{
+      profileUploadRunning=false;
+      $('publishProfileVideoBtn').disabled=false;
     }
-    const media=(await fbRead('mercado/midiasUsuarios'))||[];
-    media.push({id:'m'+Date.now(),owner:currentProfileKey(),ownerName:pendingGoogleProfile.name||'Cliente',title,url:mediaUrl,kind,fileName,likedBy:[],createdAt:new Date().toISOString()});
-    await fbWrite('mercado/midiasUsuarios',media);
-    $('profileVideoTitle').value='';$('profileVideoUrl').value='';$('profileMediaFile').value='';
-    msg.textContent='Conteúdo publicado no seu perfil.';activateProfileTab('published');
-  }catch(e){msg.textContent='Não foi possível publicar: '+(e.message||'verifique as permissões do Firebase Storage.');}
+  })();
 });
+function musicSectionOf(m){return String(m.section||'').trim()||'Sem seção';}
+function canEditMusic(m){return (m.owner&&m.owner===currentProfileKey())||!!currentEmployee;}
+let musicQueue=[];
+function playCommunityTrack(m){
+  const box=$('musicPlayerBox');if(!box)return;
+  box.innerHTML=`<div style="background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:12px 14px;box-shadow:0 4px 14px rgba(0,0,0,.08);"><div style="font-size:13px;margin-bottom:6px;"><strong>🎵 ${escShort(m.title||'Música')}</strong> <small style="color:var(--muted);">· ${escShort(musicSectionOf(m))}</small></div><audio controls autoplay preload="auto" src="${escShort(m.url)}" style="width:100%;"></audio></div>`;
+  const au=box.querySelector('audio');
+  au.addEventListener('ended',()=>{
+    const i=musicQueue.findIndex(x=>String(x.id)===String(m.id));
+    const next=musicQueue[i+1];
+    if(next&&musicSectionOf(next)===musicSectionOf(m))playCommunityTrack(next);
+  });
+  document.querySelectorAll('.music-track').forEach(el=>el.classList.toggle('playing',el.dataset.track===String(m.id)));
+}
+async function moveMusicSection(id){
+  const media=toArr(await fbRead('mercado/midiasUsuarios'));
+  const idx=media.findIndex(x=>String(x.id)===String(id));
+  if(idx<0)return;
+  const sections=[...new Set(media.filter(m=>m.kind==='audio'&&m.section).map(m=>m.section))];
+  const v=prompt('Seção desta música'+(sections.length?'\nExistentes: '+sections.join(', '):'')+'\n(deixe vazio para "Sem seção")',media[idx].section||'');
+  if(v===null)return;
+  media[idx].section=v.trim().slice(0,40);
+  await fbWrite('mercado/midiasUsuarios',media);
+  loadCommunityMusic();
+}
 async function loadCommunityMusic(){
   const box=$('communityMusicList');if(!box)return;
-  const media=(await fbRead('mercado/midiasUsuarios'))||[];
-  const tracks=media.filter(m=>m.kind==='audio'||m.kind==='music'||m.kind==='link'&&/spotify|music\.apple|soundcloud|youtube|youtu\.be/i.test(m.url||''));
-  box.innerHTML=tracks.length?tracks.slice().reverse().map(m=>`<div class="profile-video-item"><div><strong>${String(m.title||'Música').replace(/</g,'&lt;')}</strong><div style="font-size:11px;color:var(--muted);">Por ${String(m.ownerName||'Usuário').replace(/</g,'&lt;')}</div></div><button type="button" class="btn btn-outline" data-play-community="${String(m.id)}">▶ Ouvir</button></div>`).join(''):'<p class="profile-empty">Ainda não há músicas publicadas.</p>';
-  box.querySelectorAll('[data-play-community]').forEach(b=>b.addEventListener('click',()=>{const m=tracks.find(x=>x.id===b.dataset.playCommunity);if(m)playMusicUrl(m.url,m.title||'Música',m.kind);}));
+  const media=toArr(await fbRead('mercado/midiasUsuarios'));
+  const tracks=media.filter(m=>m.kind==='audio'&&m.url);
+  if(!tracks.length){box.innerHTML='<p class="profile-empty">Ainda não há músicas publicadas.</p>';return;}
+  const groups={};
+  tracks.forEach(m=>{const n=musicSectionOf(m);(groups[n]=groups[n]||[]).push(m);});
+  const names=Object.keys(groups).sort((x,y)=>x==='Sem seção'?1:y==='Sem seção'?-1:x.localeCompare(y,'pt-BR'));
+  musicQueue=[];names.forEach(n=>musicQueue.push(...groups[n]));
+  box.innerHTML=names.map(n=>`<details open class="music-section"><summary>📂 ${escShort(n)} <small>(${groups[n].length})</small></summary>${groups[n].map(m=>`<div class="music-track" data-track="${escShort(m.id)}"><strong>${escShort(m.title||'Música')}</strong><span style="display:flex;gap:6px;"><button type="button" data-play-track="${escShort(m.id)}" aria-label="Tocar">▶</button>${canEditMusic(m)?`<button type="button" data-move-track="${escShort(m.id)}" aria-label="Mudar de seção" title="Mudar de seção">📂</button>`:''}</span></div>`).join('')}</details>`).join('');
+  box.querySelectorAll('[data-play-track]').forEach(b=>b.addEventListener('click',()=>{const m=tracks.find(x=>String(x.id)===b.dataset.playTrack);if(m)playCommunityTrack(m);}));
+  box.querySelectorAll('[data-move-track]').forEach(b=>b.addEventListener('click',()=>moveMusicSection(b.dataset.moveTrack)));
 }
-function playMusicUrl(raw,title,kind='link'){
-  const url=String(raw||'');let embed='';
-  const target=$('musicExternalPlayer');
-  if(kind==='audio'){target.innerHTML=`<h3 style="font-size:14px;color:var(--green-deep);">${String(title).replace(/</g,'&lt;')}</h3><audio controls preload="none" src="${url.replace(/"/g,'&quot;')}" style="width:100%;"></audio>`;return;}
-  try{
-    const u=new URL(url);
-    if(u.hostname.includes('open.spotify.com')) embed='https://open.spotify.com/embed/'+u.pathname.replace(/^\//,'');
-    else if(u.hostname.includes('youtube.com')||u.hostname==='youtu.be') {const id=u.hostname==='youtu.be'?u.pathname.slice(1):(u.searchParams.get('v')||u.pathname.split('/').pop());if(id)embed='https://www.youtube.com/embed/'+id;}
-    else if(u.hostname.includes('soundcloud.com')) embed='https://w.soundcloud.com/player/?url='+encodeURIComponent(url);
-    else if(u.hostname.includes('music.apple.com')) embed=url.replace('https://music.apple.com/','https://embed.music.apple.com/');
-  }catch(e){}
-  if(embed){target.innerHTML=`<h3 style="font-size:14px;color:var(--green-deep);">${String(title).replace(/</g,'&lt;')}</h3><iframe src="${embed}" title="Player de música" width="100%" height="180" style="border:0;border-radius:12px;" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>`;}
-  else {target.innerHTML='<p class="profile-help">Esta plataforma não permite player incorporado. Abra o link oficial para escutar.</p>';window.open(url,'_blank','noopener');}
-}
-$('openMusicLinkBtn').addEventListener('click',()=>{const url=$('musicPlatformUrl').value.trim();if(!/^https?:\/\//i.test(url))return;playMusicUrl(url,'Música selecionada');});
 
 
 /* Navegação do menu inferior */
@@ -1474,36 +1572,263 @@ document.getElementById('addFuncBtn').addEventListener('click',async()=>{
 /* ============ SHORTS ============ */
 function getEmbedUrl(url, platform){
   try{
-    if(platform==='youtube'||url.includes('youtube')||url.includes('youtu.be')){
-      const m = url.match(/(?:v=|\/shorts\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    if(platform==='upload') return null;
+    if(platform==='youtube'||/youtube|youtu\.be/.test(url)){
+      const m = url.match(/(?:v=|\/shorts\/|youtu\.be\/|\/embed\/)([a-zA-Z0-9_-]{11})/);
       return m ? `https://www.youtube.com/embed/${m[1]}?autoplay=0&rel=0` : null;
     }
     if(platform==='tiktok'||url.includes('tiktok')){
       const m = url.match(/video\/(\d+)/);
       return m ? `https://www.tiktok.com/embed/v2/${m[1]}` : null;
     }
-    if(platform==='kwai'||url.includes('kwai')){
-      // Kwai doesn't have a standard embed, open in new tab
-      return null;
-    }
     if(platform==='instagram'||url.includes('instagram')){
       const m = url.match(/\/(p|reel|reels)\/([A-Za-z0-9_-]+)/);
-      return m ? `https://www.instagram.com/${m[1]}/${m[2]}/embed/` : null;
+      return m ? `https://www.instagram.com/${m[1]==='reels'?'reel':m[1]}/${m[2]}/embed/` : null;
     }
   }catch(e){}
   return null;
 }
 
 function platformIcon(p){
-  return {kwai:'📹',tiktok:'🎵',youtube:'▶️',instagram:'📸'}[p]||'🎬';
+  return {kwai:'📹',tiktok:'🎵',youtube:'▶️',instagram:'📸',upload:'📁'}[p]||'🎬';
+}
+
+function escShort(t){return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+const SHORTS_DB='mercado/shortsInteracoes';
+let shortsAudios=[];
+function toArr(v){return Array.isArray(v)?v.filter(Boolean):(v&&typeof v==='object'?Object.values(v):[]);}
+function shortKey(s){
+  const str=String(s.url||'')+String(s.date||'');let h=0;
+  for(let i=0;i<str.length;i++){h=(h*31+str.charCodeAt(i))|0;}
+  return 'a'+(h>>>0).toString(36);
+}
+
+async function toggleShortLike(ctx){
+  const me=currentProfileKey();
+  if(ctx.type==='user'){
+    const store=ctx.store||'mercado/midiasUsuarios';
+    const media=toArr(await fbRead(store));
+    const idx=media.findIndex(x=>String(x.id)===String(ctx.id));
+    if(idx<0) throw new Error('not found');
+    const set=new Set(toArr(media[idx].likedBy));
+    set.has(me)?set.delete(me):set.add(me);
+    media[idx].likedBy=[...set];
+    await fbWrite(store,media);
+    return [...set];
+  }
+  const path=SHORTS_DB+'/'+ctx.key+'/likedBy';
+  const set=new Set(toArr(await fbRead(path)));
+  set.has(me)?set.delete(me):set.add(me);
+  await fbWrite(path,[...set]);
+  return [...set];
+}
+
+function musicOptionsHtml(tracks){
+  const g={};
+  tracks.forEach((t,i)=>{const n=t.section||'Sem seção';(g[n]=g[n]||[]).push([t,i]);});
+  const names=Object.keys(g).sort((x,y)=>x==='Sem seção'?1:y==='Sem seção'?-1:x.localeCompare(y,'pt-BR'));
+  return names.map(n=>`<optgroup label="${escShort(n)}">${g[n].map(([t,i])=>`<option value="${i}">${escShort(t.title)}</option>`).join('')}</optgroup>`).join('');
+}
+function attachShortExtras(card,ctx){
+  let likedBy=ctx.likedBy.slice();
+  let comments=ctx.comments.slice();
+  const bar=document.createElement('div');
+  bar.className='short-actions';
+  bar.innerHTML=`
+    <button type="button" class="short-act" data-act="like">${likedBy.includes(currentProfileKey())?'❤️':'♡'} <span>${likedBy.length}</span></button>
+    <button type="button" class="short-act" data-act="comments">💬 <span>${comments.length}</span></button>
+    <button type="button" class="short-act" data-act="share">↗ Compartilhar</button>
+    ${ctx.hasVideoEl?'<button type="button" class="short-act" data-act="music">🎵 Música</button>':''}`;
+  card.appendChild(bar);
+
+  const panels={};
+  function openPanel(name){
+    Object.keys(panels).forEach(k=>{
+      const show=k===name&&panels[k].style.display==='none';
+      panels[k].style.display=show?'':'none';
+      const btn=bar.querySelector('[data-act="'+k+'"]');
+      if(btn)btn.classList.toggle('on',show);
+    });
+  }
+
+  // CURTIR
+  bar.querySelector('[data-act="like"]').addEventListener('click',async e=>{
+    const btn=e.currentTarget;
+    if(!pendingGoogleProfile){alert('Conecte sua conta Google no menu Mais para curtir.');return;}
+    try{
+      likedBy=await toggleShortLike(ctx);
+      btn.innerHTML=(likedBy.includes(currentProfileKey())?'❤️':'♡')+' <span>'+likedBy.length+'</span>';
+    }catch(err){console.error(err);alert('Não foi possível curtir agora. Tente de novo.');}
+  });
+
+  // COMPARTILHAR
+  bar.querySelector('[data-act="share"]').addEventListener('click',async()=>{
+    const data={title:ctx.title||'Vídeo',text:(ctx.title||'Vídeo')+' — Mercado Família Flores',url:ctx.shareUrl};
+    try{
+      if(navigator.share){await navigator.share(data);}
+      else{await navigator.clipboard.writeText(ctx.shareUrl);alert('Link copiado!');}
+    }catch(err){
+      if(err&&err.name==='AbortError')return;
+      try{await navigator.clipboard.writeText(ctx.shareUrl);alert('Link copiado!');}
+      catch(e2){prompt('Copie o link:',ctx.shareUrl);}
+    }
+  });
+
+  // COMENTÁRIOS
+  const cPanel=document.createElement('div');
+  cPanel.className='short-panel';cPanel.style.display='none';
+  cPanel.innerHTML='<div data-clist></div><div class="short-comment-row"><input type="text" maxlength="300" placeholder="Escreva um comentário…" data-cinput><button type="button" class="btn btn-primary" data-csend>Enviar</button></div>';
+  card.appendChild(cPanel);panels.comments=cPanel;
+  const countEl=bar.querySelector('[data-act="comments"] span');
+  function renderComments(){
+    const box=cPanel.querySelector('[data-clist]');
+    countEl.textContent=comments.length;
+    if(!comments.length){box.innerHTML='<div class="short-help">Ainda não há comentários. Seja o primeiro!</div>';return;}
+    box.innerHTML=comments.map(c=>{
+      const can=c.owner===currentProfileKey()||currentEmployee;
+      return `<div class="short-comment">${can?`<button type="button" data-cdel="${escShort(c.id)}" aria-label="Excluir">✕</button>`:''}<strong>${escShort(c.name||'Cliente')}</strong><small>${escShort(new Date(c.at||Date.now()).toLocaleDateString('pt-BR'))}</small><div>${escShort(c.text)}</div></div>`;
+    }).join('');
+    box.querySelectorAll('[data-cdel]').forEach(b=>b.addEventListener('click',async()=>{
+      try{
+        const path=SHORTS_DB+'/'+ctx.key+'/comments';
+        const cur=toArr(await fbRead(path)).filter(c=>c.id!==b.dataset.cdel);
+        await fbWrite(path,cur);comments=cur;renderComments();
+      }catch(err){alert('Não foi possível excluir.');}
+    }));
+  }
+  renderComments();
+  async function sendComment(){
+    if(!pendingGoogleProfile){alert('Conecte sua conta Google no menu Mais para comentar.');return;}
+    const input=cPanel.querySelector('[data-cinput]');
+    const text=input.value.trim().slice(0,300);
+    if(!text)return;
+    try{
+      const path=SHORTS_DB+'/'+ctx.key+'/comments';
+      const cur=toArr(await fbRead(path));
+      cur.push({id:'c'+Date.now(),owner:currentProfileKey(),name:pendingGoogleProfile.name||'Cliente',text,at:new Date().toISOString()});
+      await fbWrite(path,cur);comments=cur;input.value='';renderComments();
+    }catch(err){console.error(err);alert('Não foi possível enviar o comentário.');}
+  }
+  cPanel.querySelector('[data-csend]').addEventListener('click',sendComment);
+  cPanel.querySelector('[data-cinput]').addEventListener('keydown',e=>{if(e.key==='Enter')sendComment();});
+  bar.querySelector('[data-act="comments"]').addEventListener('click',()=>openPanel('comments'));
+
+  // MÚSICA DE FUNDO + VOLUMES
+  if(ctx.hasVideoEl){
+    const video=card.querySelector('video');
+    const tracks=ctx.tracks.slice();
+    let selIdx=-1;
+    if(ctx.music&&ctx.music.url){
+      selIdx=tracks.findIndex(t=>t.url===ctx.music.url);
+      if(selIdx<0){tracks.push({url:ctx.music.url,title:ctx.music.title||'Música do vídeo'});selIdx=tracks.length-1;}
+    }
+    const audio=new Audio();audio.loop=true;audio.preload='auto';audio.volume=0.5;
+    shortsAudios.push(audio);
+    function setTrack(i){
+      selIdx=i;
+      if(i<0){audio.pause();audio.removeAttribute('src');audio.load();return;}
+      audio.src=tracks[i].url;
+      if(!video.paused)audio.play().catch(()=>{});
+    }
+    const mPanel=document.createElement('div');
+    mPanel.className='short-panel';mPanel.style.display='none';
+    mPanel.innerHTML=`
+      ${tracks.length?`<select data-msel><option value="-1">Sem música de fundo</option>${musicOptionsHtml(tracks)}</select>`
+        :'<div class="short-help">Nenhuma música disponível ainda. Publique uma música pelo ＋ do menu Mais para usar aqui.</div>'}
+      <label><span>🔊 Vídeo</span><input type="range" min="0" max="1" step="0.05" value="1" data-vvol></label>
+      <label><span>🎵 Música</span><input type="range" min="0" max="1" step="0.05" value="0.5" data-mvol></label>
+      <button type="button" class="btn btn-outline" data-msave style="display:none;">💾 Salvar como música deste vídeo</button>
+      <div class="short-help">A música toca junto com o vídeo, em loop. No iPhone o volume do vídeo segue o volume do aparelho.</div>`;
+    card.appendChild(mPanel);panels.music=mPanel;
+    const sel=mPanel.querySelector('[data-msel]');
+    if(sel){sel.value=String(selIdx);sel.addEventListener('change',()=>setTrack(Number(sel.value)));}
+    if(selIdx>=0)setTrack(selIdx);
+    const vv=mPanel.querySelector('[data-vvol]');
+    vv.addEventListener('input',()=>{video.muted=false;video.volume=Number(vv.value);});
+    video.addEventListener('volumechange',()=>{vv.value=video.muted?0:video.volume;});
+    mPanel.querySelector('[data-mvol]').addEventListener('input',e=>{audio.volume=Number(e.target.value);});
+    video.addEventListener('play',()=>{
+      document.querySelectorAll('#shortsList video').forEach(v=>{if(v!==video)v.pause();});
+      if(selIdx>=0)audio.play().catch(()=>{});
+    });
+    video.addEventListener('pause',()=>audio.pause());
+    video.addEventListener('ended',()=>audio.pause());
+    const saveBtn=mPanel.querySelector('[data-msave]');
+    saveBtn.addEventListener('click',async()=>{
+      try{
+        const val=selIdx>=0?{url:tracks[selIdx].url,title:tracks[selIdx].title}:null;
+        await fbWrite(SHORTS_DB+'/'+ctx.key+'/music',val);
+        alert(val?'Música salva para este vídeo!':'Música removida deste vídeo.');
+      }catch(err){alert('Não foi possível salvar.');}
+    });
+    bar.querySelector('[data-act="music"]').addEventListener('click',()=>{
+      const canSave=(ctx.owner&&ctx.owner===currentProfileKey())||currentEmployee;
+      saveBtn.style.display=(canSave&&tracks.length)?'':'none';
+      openPanel('music');
+    });
+  }
+}
+
+function detectShortPlatform(url){
+  const u=String(url||'');
+  if(/tiktok/i.test(u))return 'tiktok';
+  if(/kwai|kw\.ai/i.test(u))return 'kwai';
+  if(/instagram\.com\/(reel|reels|p)\//i.test(u))return 'instagram';
+  if(/youtube\.com\/shorts|youtu\.be|youtube\.com\/watch/i.test(u))return 'youtube';
+  return '';
+}
+function shortMediaHtml(url,platform){
+  if(platform==='upload'){
+    return `<video src="${escShort(url)}#t=0.1" controls playsinline preload="metadata" style="width:100%;max-height:80vh;background:#000;display:block;"></video>`;
+  }
+  const embedUrl=getEmbedUrl(url,platform);
+  if(embedUrl){
+    return `<div style="position:relative;padding-bottom:177%;height:0;"><iframe src="${embedUrl}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" allowfullscreen></iframe></div>`;
+  }
+  return `<div style="padding:20px;text-align:center;background:var(--cream);">
+      <div style="font-size:40px;margin-bottom:8px;">${platformIcon(platform)}</div>
+      <a href="${escShort(url)}" target="_blank" rel="noopener" class="btn btn-primary" style="text-decoration:none;display:inline-flex;">📹 Assistir no ${platform==='kwai'?'Kwai':escShort(platform)}</a>
+      ${platform==='kwai'?'<div style="font-size:11px;color:var(--muted);margin-top:8px;">O Kwai não permite visualização incorporada</div>':''}
+    </div>`;
 }
 
 async function loadShorts(){
   try{
-    const shorts=(await fbRead('mercado/shorts'))||[];
+    shortsAudios.forEach(a=>{try{a.pause();}catch(e){}});shortsAudios=[];
+    const adminShorts=toArr(await fbRead('mercado/shorts'));
+    let allMedia=[],legacy=[],inter={};
+    try{allMedia=toArr(await fbRead('mercado/midiasUsuarios'));}catch(e){}
+    try{legacy=toArr(await fbRead('mercado/videosUsuarios'));}catch(e){}
+    try{inter=(await fbRead(SHORTS_DB))||{};}catch(e){}
+    const tracks=allMedia.filter(m=>m.kind==='audio'&&m.url).map(m=>({url:m.url,section:musicSectionOf(m),title:(m.title||'Música')+(m.ownerName?' · '+m.ownerName:'')}));
+
+    // Tudo que for vídeo entra no Short, igual aos vídeos do site
+    const items=[];
+    adminShorts.forEach(s=>items.push({store:null,s,platform:s.platform||detectShortPlatform(s.url),url:s.url,title:s.title,owner:null,ownerName:'',date:s.date||'',key:shortKey(s),likedBy:null}));
+    allMedia.forEach(m=>{
+      if(!m.url)return;
+      if(m.kind==='video'){
+        items.push({store:'mercado/midiasUsuarios',m,platform:'upload',url:m.url,title:m.title,owner:m.owner,ownerName:m.ownerName,date:m.createdAt||'',key:String(m.id).replace(/[^A-Za-z0-9_-]/g,'_'),likedBy:m.likedBy,id:m.id});
+      }else if(m.kind==='link'||m.kind==='music'){
+        const pf=detectShortPlatform(m.url);
+        const isMusicYoutube=m.kind==='music'&&pf==='youtube'&&!/shorts/i.test(m.url);
+        if(pf&&!isMusicYoutube){
+          items.push({store:'mercado/midiasUsuarios',m,platform:pf,url:m.url,title:m.title,owner:m.owner,ownerName:m.ownerName,date:m.createdAt||'',key:String(m.id).replace(/[^A-Za-z0-9_-]/g,'_'),likedBy:m.likedBy,id:m.id});
+        }
+      }
+    });
+    legacy.forEach(v=>{
+      const pf=detectShortPlatform(v.url);
+      if(!pf)return;
+      const id=v.id||shortKey(v);
+      items.push({store:'mercado/videosUsuarios',m:v,platform:pf,url:v.url,title:v.title,owner:v.owner,ownerName:v.ownerName,date:v.createdAt||v.date||'',key:'l'+String(id).replace(/[^A-Za-z0-9_-]/g,'_'),likedBy:v.likedBy,id});
+    });
+    items.sort((x,y)=>String(y.date).localeCompare(String(x.date)));
+
     const list=$('shortsList');
     const empty=$('shortsEmpty');
-    if(!shorts.length){
+    if(!items.length){
       if(empty) empty.style.display='block';
       if(list) list.innerHTML='';
       return;
@@ -1511,24 +1836,18 @@ async function loadShorts(){
     if(empty) empty.style.display='none';
     if(!list) return;
     list.innerHTML='';
-    shorts.slice().reverse().forEach(s=>{
+    items.forEach(it=>{
+      const i=inter[it.key]||{};
       const card=document.createElement('div');
       card.style.cssText='background:var(--paper);border:1px solid var(--line);border-radius:14px;overflow:hidden;';
-      const embedUrl=getEmbedUrl(s.url, s.platform);
-      const isKwai=s.platform==='kwai'||s.url.includes('kwai');
       card.innerHTML=`
-        <div style="padding:14px 16px 10px;display:flex;align-items:center;gap:8px;">
-          <span style="font-size:20px;">${platformIcon(s.platform)}</span>
-          <strong style="font-size:15px;font-family:'Fredoka',sans-serif;color:var(--green-deep);">${s.title||'Sem título'}</strong>
-        </div>
-        ${embedUrl
-          ? `<div style="position:relative;padding-bottom:177%;height:0;"><iframe src="${embedUrl}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" allowfullscreen></iframe></div>`
-          : `<div style="padding:20px;text-align:center;background:var(--cream);">
-              <div style="font-size:40px;margin-bottom:8px;">${platformIcon(s.platform)}</div>
-              <a href="${s.url}" target="_blank" class="btn btn-primary" style="text-decoration:none;display:inline-flex;">📹 Assistir no ${s.platform==='kwai'?'Kwai':s.platform}</a>
-              ${isKwai?'<div style="font-size:11px;color:var(--muted);margin-top:8px;">O Kwai não permite visualização incorporada</div>':''}
-            </div>`
-        }`;
+        ${shortMediaHtml(it.url,it.platform)}`;
+      const ctx={
+        type:it.store?'user':'admin',store:it.store,id:it.id,key:it.key,owner:it.owner,title:it.title,shareUrl:it.url,
+        hasVideoEl:it.platform==='upload',tracks,music:i.music,
+        likedBy:toArr(it.store?it.likedBy:i.likedBy),comments:toArr(i.comments)
+      };
+      attachShortExtras(card,ctx);
       list.appendChild(card);
     });
   }catch(e){ console.error(e); }
@@ -1538,11 +1857,14 @@ async function loadShortsAdmin(){
   try{
     const shorts=(await fbRead('mercado/shorts'))||[];
     const el=$('shortAdminList');if(!el)return;
+    el.style.cssText='margin-top:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px;';
     el.innerHTML=shorts.length ? shorts.slice().reverse().map((s,i)=>`
-      <div style="display:flex;align-items:center;justify-content:space-between;background:var(--cream);border-radius:8px;padding:9px 12px;font-size:13px;">
-        <span>${platformIcon(s.platform)} <strong>${s.title||'Sem título'}</strong></span>
-        <button class="small-btn danger" data-delidx="${shorts.length-1-i}">✕</button>
-      </div>`).join('') : '<div style="color:var(--muted);font-size:13px;">Nenhum vídeo adicionado.</div>';
+      <div style="position:relative;border-radius:10px;overflow:hidden;background:#000;aspect-ratio:3/4;">
+        ${s.platform==='upload'
+          ? `<video src="${String(s.url).replace(/"/g,'&quot;')}#t=0.1" preload="metadata" muted playsinline style="width:100%;height:100%;object-fit:cover;pointer-events:none;display:block;"></video>`
+          : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:34px;background:var(--cream);">${platformIcon(s.platform)}</div>`}
+        <button class="small-btn danger" data-delidx="${shorts.length-1-i}" aria-label="Excluir vídeo" style="position:absolute;top:4px;right:4px;">✕</button>
+      </div>`).join('') : '<div style="color:var(--muted);font-size:13px;grid-column:1/-1;">Nenhum vídeo adicionado.</div>';
     el.querySelectorAll('[data-delidx]').forEach(btn=>{
       btn.addEventListener('click',async()=>{
         const idx=Number(btn.getAttribute('data-delidx'));
@@ -1556,16 +1878,31 @@ async function loadShortsAdmin(){
 }
 
 document.getElementById('addShortBtn').addEventListener('click',async()=>{
-  const title=$('shortTitle').value.trim();
-  const url=$('shortUrl').value.trim();
-  const platform=$('shortPlatform').value;
-  if(!url){alert('Cola o link do vídeo!');return;}
-  const shorts=(await fbRead('mercado/shorts'))||[];
-  shorts.push({title:title||'Vídeo do '+platform,url,platform,date:new Date().toISOString()});
-  await fbWrite('mercado/shorts',shorts);
-  $('shortTitle').value='';$('shortUrl').value='';
-  loadShortsAdmin();
-  alert('✅ Vídeo adicionado!');
+  const btn=$('addShortBtn');
+  const files=Array.from($('shortFile').files||[]);
+  if(!files.length){alert('Escolha um vídeo do dispositivo!');return;}
+  try{
+    btn.disabled=true;
+    await waitFirebase();
+    for(let i=0;i<files.length;i++){
+      const file=files[i];
+      if(!(file.type.startsWith('video/')||/\.(mp4|mov|m4v|webm|3gp|mkv|avi)$/i.test(file.name))){alert(file.name+' não é um vídeo.');continue;}
+      const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+      const url=await window.fbUploadFileResumable(file,`mercado/shorts/${Date.now()}_${i}_${safe}`,pct=>{
+        $('shortProgress').textContent='Enviando '+(i+1)+' de '+files.length+'… '+Math.round(pct)+'%';
+      });
+      const shorts=(await fbRead('mercado/shorts'))||[];
+      shorts.push({title:file.name,url,platform:'upload',date:new Date().toISOString()});
+      await fbWrite('mercado/shorts',shorts);
+    }
+    $('shortFile').value='';$('shortProgress').textContent='';
+    loadShortsAdmin();
+    alert('✅ Vídeo(s) adicionado(s)!');
+  }catch(e){
+    console.error(e);
+    $('shortProgress').textContent='';
+    alert('Erro ao enviar o vídeo: '+(e.code||e.message)+'\nConfira as regras do Firebase Storage.');
+  }finally{btn.disabled=false;}
 });
 
 /* PWA Install */
@@ -1782,7 +2119,7 @@ function openProductModal(product, prefillBarcode, prefillData){
     </div>`);
   $('cancelProductBtn').addEventListener('click',closeModal);
   const pFileInput=$('pImageFile');
-  if(pFileInput){pFileInput.addEventListener('change',async()=>{const file=pFileInput.files[0];if(!file)return;const prev=$('pImagePreview');try{const url=await window.fbUploadFile(file,'produtos/'+Date.now()+'_'+file.name);$('pImage').value=url;prev.src=url;prev.style.display='block';}catch(err){alert('Não foi possível enviar a foto: '+(err.message||err));}});}
+  if(pFileInput){pFileInput.addEventListener('change',()=>{const file=pFileInput.files[0];if(!file)return;const reader=new FileReader();reader.onload=e=>{$('pImage').value=e.target.result;const prev=$('pImagePreview');prev.src=e.target.result;prev.style.display='block';};reader.readAsDataURL(file);});}
   if($('pImage')&&$('pImage').value){const prev=$('pImagePreview');prev.src=$('pImage').value;prev.style.display='block';}
   $('submitProductBtn').addEventListener('click',async()=>{
     const name=$('pName').value.trim(),price=$('pPrice').value;
@@ -2104,10 +2441,10 @@ loadAll();
 </script>
 <script>
 if('serviceWorker' in navigator){
-  const sw = `const CACHE='mercado-v3';const S=['./','/index.html'];
+  const sw = `const CACHE='mercado-v2';const S=['./','/index.html'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(S).catch(()=>{})));self.skipWaiting();});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==CACHE).map(x=>caches.delete(x)))));self.clients.claim();});
-self.addEventListener('fetch',e=>{if(e.request.url.includes('firebaseio.com')||e.request.url.includes('supabase.co')||e.request.url.includes('googleapis.com')||e.request.url.includes('anthropic.com'))return;e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(res=>{if(res&&res.status===200){const c=res.clone();caches.open(CACHE).then(ca=>ca.put(e.request,c));}return res;}).catch(()=>caches.match('/index.html'))));});`;
+self.addEventListener('fetch',e=>{if(e.request.url.includes('firebaseio.com')||e.request.url.includes('googleapis.com')||e.request.url.includes('anthropic.com'))return;e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(res=>{if(res&&res.status===200){const c=res.clone();caches.open(CACHE).then(ca=>ca.put(e.request,c));}return res;}).catch(()=>caches.match('/index.html'))));});`;
   const blob = new Blob([sw], {type:'application/javascript'});
   navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(()=>{});
 }
