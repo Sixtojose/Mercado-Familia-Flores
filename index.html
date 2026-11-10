@@ -12,31 +12,47 @@
 <meta name="google-site-verification" content="BzT6kl8ClAInO-WipESPq4MeRmMPOuvmyCWF3KsMdio" />
 <title>Mercado Família Flores</title>
 <link rel="preconnect" href="https://www.gstatic.com">
-<link rel="preconnect" href="https://portal-familia-flores-re-8ad87-default-rtdb.firebaseio.com">
+<link rel="preconnect" href="https://avkxnwyboiqeeqbkjccy.supabase.co">
 <link rel="dns-prefetch" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Work+Sans:wght@400;500;600;700&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getDatabase, ref, set, get, enableLogging } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-  import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
-  const firebaseConfig = {
-    apiKey: "AIzaSyAAPFyCcZR9xLCJ0WU0RYHSr3vdQmodgAw",
-    authDomain: "portal-familia-flores-re-8ad87.firebaseapp.com",
-    databaseURL: "https://portal-familia-flores-re-8ad87-default-rtdb.firebaseio.com",
-    projectId: "portal-familia-flores-re-8ad87",
-    storageBucket: "portal-familia-flores-re-8ad87.firebasestorage.app",
-    messagingSenderId: "932432761698",
-    appId: "1:932432761698:web:09215e3fe04224d87c923b"
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+  /* Banco de dados: Supabase (tabela kv) e fotos/vídeos: Supabase Storage (bucket midias) */
+  const SB_URL='https://avkxnwyboiqeeqbkjccy.supabase.co';
+  const SB_KEY='sb_publishable_elZ2YqB4drf-BKEQu0HdCg_tmhZgwWL';
+  const OLD_DB='https://portal-familia-flores-re-8ad87-default-rtdb.firebaseio.com'; // só para copiar os dados antigos
+  const sbc=supabase.createClient(SB_URL,SB_KEY);
+  const tentados=new Set();
+  window.fbDB={};
+  window.fbRef=(db,path)=>path;
+  window.fbSet=async(path,val)=>{
+    const {error}=await sbc.from('kv').upsert({path,value:val,atualizado_em:new Date().toISOString()},{onConflict:'path'});
+    if(error) throw error;
   };
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-  window.fbDB = db; window.fbRef = ref; window.fbSet = set; window.fbGet = get;
-  const storage = getStorage(app);
-  window.fbUploadFile = async (file, path) => { const target=storageRef(storage,path); await uploadBytes(target,file); return await getDownloadURL(target); };
-  window.fbReady = true;
+  window.fbGet=async(path)=>{
+    let v=null;
+    const {data,error}=await sbc.from('kv').select('value').eq('path',path).maybeSingle();
+    if(error) throw error;
+    if(data){ v=data.value; }
+    else if(!tentados.has(path)){
+      tentados.add(path);
+      try{ // primeira vez: copia do Firebase antigo, se ainda existir
+        const r=await fetch(OLD_DB+'/'+path+'.json');
+        if(r.ok){ const old=await r.json(); if(old!==null){ v=old; await window.fbSet(path,old); } }
+      }catch(e){}
+    }
+    return {exists:()=>v!==null&&v!==undefined,val:()=>v};
+  };
+  window.fbUploadFile=async(file,path)=>{
+    path=path.replace(/[^a-zA-Z0-9._\/-]/g,'_');
+    const {error}=await sbc.storage.from('midias').upload(path,file,{contentType:file.type||undefined,upsert:false});
+    if(error) throw error;
+    return sbc.storage.from('midias').getPublicUrl(path).data.publicUrl;
+  };
+  window.fbReady=true;
   document.dispatchEvent(new Event('firebase-ready'));
 </script>
 <style>
@@ -1766,7 +1782,7 @@ function openProductModal(product, prefillBarcode, prefillData){
     </div>`);
   $('cancelProductBtn').addEventListener('click',closeModal);
   const pFileInput=$('pImageFile');
-  if(pFileInput){pFileInput.addEventListener('change',()=>{const file=pFileInput.files[0];if(!file)return;const reader=new FileReader();reader.onload=e=>{$('pImage').value=e.target.result;const prev=$('pImagePreview');prev.src=e.target.result;prev.style.display='block';};reader.readAsDataURL(file);});}
+  if(pFileInput){pFileInput.addEventListener('change',async()=>{const file=pFileInput.files[0];if(!file)return;const prev=$('pImagePreview');try{const url=await window.fbUploadFile(file,'produtos/'+Date.now()+'_'+file.name);$('pImage').value=url;prev.src=url;prev.style.display='block';}catch(err){alert('Não foi possível enviar a foto: '+(err.message||err));}});}
   if($('pImage')&&$('pImage').value){const prev=$('pImagePreview');prev.src=$('pImage').value;prev.style.display='block';}
   $('submitProductBtn').addEventListener('click',async()=>{
     const name=$('pName').value.trim(),price=$('pPrice').value;
@@ -2088,10 +2104,10 @@ loadAll();
 </script>
 <script>
 if('serviceWorker' in navigator){
-  const sw = `const CACHE='mercado-v2';const S=['./','/index.html'];
+  const sw = `const CACHE='mercado-v3';const S=['./','/index.html'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(S).catch(()=>{})));self.skipWaiting();});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==CACHE).map(x=>caches.delete(x)))));self.clients.claim();});
-self.addEventListener('fetch',e=>{if(e.request.url.includes('firebaseio.com')||e.request.url.includes('googleapis.com')||e.request.url.includes('anthropic.com'))return;e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(res=>{if(res&&res.status===200){const c=res.clone();caches.open(CACHE).then(ca=>ca.put(e.request,c));}return res;}).catch(()=>caches.match('/index.html'))));});`;
+self.addEventListener('fetch',e=>{if(e.request.url.includes('firebaseio.com')||e.request.url.includes('supabase.co')||e.request.url.includes('googleapis.com')||e.request.url.includes('anthropic.com'))return;e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(res=>{if(res&&res.status===200){const c=res.clone();caches.open(CACHE).then(ca=>ca.put(e.request,c));}return res;}).catch(()=>caches.match('/index.html'))));});`;
   const blob = new Blob([sw], {type:'application/javascript'});
   navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(()=>{});
 }
