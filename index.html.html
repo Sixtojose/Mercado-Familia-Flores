@@ -238,6 +238,22 @@ html::-webkit-scrollbar-thumb:hover { background: #999; }
 #customScrollThumb{position:absolute;left:2px;top:0;width:8px;min-height:42px;border-radius:10px;background:#777;border:1px solid rgba(255,255,255,.65);box-shadow:0 1px 5px rgba(0,0,0,.25);cursor:grab;touch-action:none;}
 #customScrollThumb:active{background:#555;cursor:grabbing;}
 </style>
+<style>
+.short-actions{display:flex;gap:4px;padding:6px 10px;border-top:1px solid var(--line);flex-wrap:wrap;align-items:center}
+.short-act{border:0;background:transparent;font-size:15px;padding:9px 11px;border-radius:10px;cursor:pointer;color:var(--ink);display:inline-flex;gap:5px;align-items:center;font-family:inherit}
+.short-act:active,.short-act.on{background:rgba(40,140,75,.13)}
+.short-panel{padding:10px 14px 14px;border-top:1px solid var(--line);font-size:13px;color:var(--ink)}
+.short-panel label{display:flex;align-items:center;gap:8px;margin:10px 0}
+.short-panel label span{min-width:74px}
+.short-panel input[type=range]{flex:1;accent-color:var(--green)}
+.short-panel select,.short-panel input[type=text]{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);font:inherit;box-sizing:border-box}
+.short-help{font-size:12px;color:var(--muted);margin-top:6px}
+.short-comment{padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
+.short-comment small{color:var(--muted);margin-left:6px}
+.short-comment button{border:0;background:transparent;color:#d64a62;cursor:pointer;float:right;font-size:16px}
+.short-comment-row{display:flex;gap:8px;margin-top:10px}
+.short-comment-row button{white-space:nowrap}
+</style>
 </head>
 <body>
 
@@ -558,9 +574,11 @@ window.addEventListener('load', ()=>{
         <option value="tiktok">🎵 TikTok</option>
         <option value="youtube">▶️ YouTube Shorts</option>
         <option value="instagram">📸 Instagram Reels</option>
+        <option value="upload" selected>📁 Vídeo do dispositivo</option>
       </select>
     </div>
-    <div class="field"><label>Link do vídeo</label><input id="shortUrl" placeholder="Cole o link do Kwai ou TikTok..."></div>
+    <div class="field" id="shortFileField"><label>Vídeo do dispositivo</label><input id="shortFile" type="file" accept="video/*"><div id="shortProgress" style="font-size:12px;color:var(--muted);margin-top:6px;"></div></div>
+    <div class="field" id="shortUrlField" style="display:none;"><label>Link do vídeo</label><input id="shortUrl" placeholder="Cole o link do Kwai ou TikTok..."></div>
           <button class="btn btn-primary" id="addShortBtn">+ Adicionar vídeo</button>
           <div id="shortAdminList" style="margin-top:14px;display:flex;flex-direction:column;gap:8px;"></div>
         </section>
@@ -869,6 +887,7 @@ async function saveCart(){ try{ await fbWrite('mercado/carrinho',cart); }catch(e
 
 /* Views */
 function showView(id){
+  if(id!=='viewShorts'){document.querySelectorAll('#shortsList video').forEach(v=>{try{v.pause();}catch(e){}});}
   ['viewStore','viewLogin','viewAdmin','viewCart','viewPedidos','viewJogos','viewShorts','viewMore','viewMusic'].forEach(v=>{const el=$(v);if(el)el.style.display=v===id?'':'none';});
   const mainMenus=['viewStore','viewShorts','viewMusic','viewJogos','viewMore'];
   const topbar=$('mainTopbar');
@@ -1171,7 +1190,7 @@ async function loadProfileVideos(tab){
   const all=await getProfileVideoData();
   const uploaded=(await fbRead('mercado/midiasUsuarios'))||[];
   const mine=[...all.filter(v=>v.owner===currentProfileKey()),...uploaded.filter(v=>v.owner===currentProfileKey())];
-  const liked=all.filter(v=>(v.likedBy||[]).includes(currentProfileKey()));
+  const liked=[...all,...uploaded].filter(v=>(v.likedBy||[]).includes(currentProfileKey()));
   const target=$(tab==='liked'?'myLikedVideos':'myPublishedVideos');
   const list=tab==='liked'?liked:mine;
   if(!target)return;
@@ -1506,36 +1525,212 @@ document.getElementById('addFuncBtn').addEventListener('click',async()=>{
 /* ============ SHORTS ============ */
 function getEmbedUrl(url, platform){
   try{
-    if(platform==='youtube'||url.includes('youtube')||url.includes('youtu.be')){
-      const m = url.match(/(?:v=|\/shorts\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    if(platform==='upload') return null;
+    if(platform==='youtube'||/youtube|youtu\.be/.test(url)){
+      const m = url.match(/(?:v=|\/shorts\/|youtu\.be\/|\/embed\/)([a-zA-Z0-9_-]{11})/);
       return m ? `https://www.youtube.com/embed/${m[1]}?autoplay=0&rel=0` : null;
     }
     if(platform==='tiktok'||url.includes('tiktok')){
       const m = url.match(/video\/(\d+)/);
       return m ? `https://www.tiktok.com/embed/v2/${m[1]}` : null;
     }
-    if(platform==='kwai'||url.includes('kwai')){
-      // Kwai doesn't have a standard embed, open in new tab
-      return null;
-    }
     if(platform==='instagram'||url.includes('instagram')){
       const m = url.match(/\/(p|reel|reels)\/([A-Za-z0-9_-]+)/);
-      return m ? `https://www.instagram.com/${m[1]}/${m[2]}/embed/` : null;
+      return m ? `https://www.instagram.com/${m[1]==='reels'?'reel':m[1]}/${m[2]}/embed/` : null;
     }
   }catch(e){}
   return null;
 }
 
 function platformIcon(p){
-  return {kwai:'📹',tiktok:'🎵',youtube:'▶️',instagram:'📸'}[p]||'🎬';
+  return {kwai:'📹',tiktok:'🎵',youtube:'▶️',instagram:'📸',upload:'📁'}[p]||'🎬';
+}
+
+function escShort(t){return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+const SHORTS_DB='mercado/shortsInteracoes';
+let shortsAudios=[];
+function toArr(v){return Array.isArray(v)?v.filter(Boolean):(v&&typeof v==='object'?Object.values(v):[]);}
+function shortKey(s){
+  const str=String(s.url||'')+String(s.date||'');let h=0;
+  for(let i=0;i<str.length;i++){h=(h*31+str.charCodeAt(i))|0;}
+  return 'a'+(h>>>0).toString(36);
+}
+
+async function toggleShortLike(ctx){
+  const me=currentProfileKey();
+  if(ctx.type==='user'){
+    const media=toArr(await fbRead('mercado/midiasUsuarios'));
+    const idx=media.findIndex(x=>x.id===ctx.id);
+    if(idx<0) throw new Error('not found');
+    const set=new Set(toArr(media[idx].likedBy));
+    set.has(me)?set.delete(me):set.add(me);
+    media[idx].likedBy=[...set];
+    await fbWrite('mercado/midiasUsuarios',media);
+    return [...set];
+  }
+  const path=SHORTS_DB+'/'+ctx.key+'/likedBy';
+  const set=new Set(toArr(await fbRead(path)));
+  set.has(me)?set.delete(me):set.add(me);
+  await fbWrite(path,[...set]);
+  return [...set];
+}
+
+function attachShortExtras(card,ctx){
+  let likedBy=ctx.likedBy.slice();
+  let comments=ctx.comments.slice();
+  const bar=document.createElement('div');
+  bar.className='short-actions';
+  bar.innerHTML=`
+    <button type="button" class="short-act" data-act="like">${likedBy.includes(currentProfileKey())?'❤️':'♡'} <span>${likedBy.length}</span></button>
+    <button type="button" class="short-act" data-act="comments">💬 <span>${comments.length}</span></button>
+    <button type="button" class="short-act" data-act="share">↗ Compartilhar</button>
+    ${ctx.hasVideoEl?'<button type="button" class="short-act" data-act="music">🎵 Música</button>':''}`;
+  card.appendChild(bar);
+
+  const panels={};
+  function openPanel(name){
+    Object.keys(panels).forEach(k=>{
+      const show=k===name&&panels[k].style.display==='none';
+      panels[k].style.display=show?'':'none';
+      const btn=bar.querySelector('[data-act="'+k+'"]');
+      if(btn)btn.classList.toggle('on',show);
+    });
+  }
+
+  // CURTIR
+  bar.querySelector('[data-act="like"]').addEventListener('click',async e=>{
+    const btn=e.currentTarget;
+    if(!pendingGoogleProfile){alert('Conecte sua conta Google no menu Mais para curtir.');return;}
+    try{
+      likedBy=await toggleShortLike(ctx);
+      btn.innerHTML=(likedBy.includes(currentProfileKey())?'❤️':'♡')+' <span>'+likedBy.length+'</span>';
+    }catch(err){console.error(err);alert('Não foi possível curtir agora. Tente de novo.');}
+  });
+
+  // COMPARTILHAR
+  bar.querySelector('[data-act="share"]').addEventListener('click',async()=>{
+    const data={title:ctx.title||'Vídeo',text:(ctx.title||'Vídeo')+' — Mercado Família Flores',url:ctx.shareUrl};
+    try{
+      if(navigator.share){await navigator.share(data);}
+      else{await navigator.clipboard.writeText(ctx.shareUrl);alert('Link copiado!');}
+    }catch(err){
+      if(err&&err.name==='AbortError')return;
+      try{await navigator.clipboard.writeText(ctx.shareUrl);alert('Link copiado!');}
+      catch(e2){prompt('Copie o link:',ctx.shareUrl);}
+    }
+  });
+
+  // COMENTÁRIOS
+  const cPanel=document.createElement('div');
+  cPanel.className='short-panel';cPanel.style.display='none';
+  cPanel.innerHTML='<div data-clist></div><div class="short-comment-row"><input type="text" maxlength="300" placeholder="Escreva um comentário…" data-cinput><button type="button" class="btn btn-primary" data-csend>Enviar</button></div>';
+  card.appendChild(cPanel);panels.comments=cPanel;
+  const countEl=bar.querySelector('[data-act="comments"] span');
+  function renderComments(){
+    const box=cPanel.querySelector('[data-clist]');
+    countEl.textContent=comments.length;
+    if(!comments.length){box.innerHTML='<div class="short-help">Ainda não há comentários. Seja o primeiro!</div>';return;}
+    box.innerHTML=comments.map(c=>{
+      const can=c.owner===currentProfileKey()||currentEmployee;
+      return `<div class="short-comment">${can?`<button type="button" data-cdel="${escShort(c.id)}" aria-label="Excluir">✕</button>`:''}<strong>${escShort(c.name||'Cliente')}</strong><small>${escShort(new Date(c.at||Date.now()).toLocaleDateString('pt-BR'))}</small><div>${escShort(c.text)}</div></div>`;
+    }).join('');
+    box.querySelectorAll('[data-cdel]').forEach(b=>b.addEventListener('click',async()=>{
+      try{
+        const path=SHORTS_DB+'/'+ctx.key+'/comments';
+        const cur=toArr(await fbRead(path)).filter(c=>c.id!==b.dataset.cdel);
+        await fbWrite(path,cur);comments=cur;renderComments();
+      }catch(err){alert('Não foi possível excluir.');}
+    }));
+  }
+  renderComments();
+  async function sendComment(){
+    if(!pendingGoogleProfile){alert('Conecte sua conta Google no menu Mais para comentar.');return;}
+    const input=cPanel.querySelector('[data-cinput]');
+    const text=input.value.trim().slice(0,300);
+    if(!text)return;
+    try{
+      const path=SHORTS_DB+'/'+ctx.key+'/comments';
+      const cur=toArr(await fbRead(path));
+      cur.push({id:'c'+Date.now(),owner:currentProfileKey(),name:pendingGoogleProfile.name||'Cliente',text,at:new Date().toISOString()});
+      await fbWrite(path,cur);comments=cur;input.value='';renderComments();
+    }catch(err){console.error(err);alert('Não foi possível enviar o comentário.');}
+  }
+  cPanel.querySelector('[data-csend]').addEventListener('click',sendComment);
+  cPanel.querySelector('[data-cinput]').addEventListener('keydown',e=>{if(e.key==='Enter')sendComment();});
+  bar.querySelector('[data-act="comments"]').addEventListener('click',()=>openPanel('comments'));
+
+  // MÚSICA DE FUNDO + VOLUMES
+  if(ctx.hasVideoEl){
+    const video=card.querySelector('video');
+    const tracks=ctx.tracks.slice();
+    let selIdx=-1;
+    if(ctx.music&&ctx.music.url){
+      selIdx=tracks.findIndex(t=>t.url===ctx.music.url);
+      if(selIdx<0){tracks.push({url:ctx.music.url,title:ctx.music.title||'Música do vídeo'});selIdx=tracks.length-1;}
+    }
+    const audio=new Audio();audio.loop=true;audio.preload='auto';audio.volume=0.5;
+    shortsAudios.push(audio);
+    function setTrack(i){
+      selIdx=i;
+      if(i<0){audio.pause();audio.removeAttribute('src');audio.load();return;}
+      audio.src=tracks[i].url;
+      if(!video.paused)audio.play().catch(()=>{});
+    }
+    const mPanel=document.createElement('div');
+    mPanel.className='short-panel';mPanel.style.display='none';
+    mPanel.innerHTML=`
+      ${tracks.length?`<select data-msel><option value="-1">Sem música de fundo</option>${tracks.map((t,i)=>`<option value="${i}">${escShort(t.title)}</option>`).join('')}</select>`
+        :'<div class="short-help">Nenhuma música disponível ainda. Publique um áudio pelo ＋ do menu Mais ou na aba Música para usar aqui.</div>'}
+      <label><span>🔊 Vídeo</span><input type="range" min="0" max="1" step="0.05" value="1" data-vvol></label>
+      <label><span>🎵 Música</span><input type="range" min="0" max="1" step="0.05" value="0.5" data-mvol></label>
+      <button type="button" class="btn btn-outline" data-msave style="display:none;">💾 Salvar como música deste vídeo</button>
+      <div class="short-help">A música toca junto com o vídeo, em loop. No iPhone o volume do vídeo segue o volume do aparelho.</div>`;
+    card.appendChild(mPanel);panels.music=mPanel;
+    const sel=mPanel.querySelector('[data-msel]');
+    if(sel){sel.value=String(selIdx);sel.addEventListener('change',()=>setTrack(Number(sel.value)));}
+    if(selIdx>=0)setTrack(selIdx);
+    const vv=mPanel.querySelector('[data-vvol]');
+    vv.addEventListener('input',()=>{video.muted=false;video.volume=Number(vv.value);});
+    video.addEventListener('volumechange',()=>{vv.value=video.muted?0:video.volume;});
+    mPanel.querySelector('[data-mvol]').addEventListener('input',e=>{audio.volume=Number(e.target.value);});
+    video.addEventListener('play',()=>{
+      document.querySelectorAll('#shortsList video').forEach(v=>{if(v!==video)v.pause();});
+      if(selIdx>=0)audio.play().catch(()=>{});
+    });
+    video.addEventListener('pause',()=>audio.pause());
+    video.addEventListener('ended',()=>audio.pause());
+    const saveBtn=mPanel.querySelector('[data-msave]');
+    saveBtn.addEventListener('click',async()=>{
+      try{
+        const val=selIdx>=0?{url:tracks[selIdx].url,title:tracks[selIdx].title}:null;
+        await fbWrite(SHORTS_DB+'/'+ctx.key+'/music',val);
+        alert(val?'Música salva para este vídeo!':'Música removida deste vídeo.');
+      }catch(err){alert('Não foi possível salvar.');}
+    });
+    bar.querySelector('[data-act="music"]').addEventListener('click',()=>{
+      const canSave=(ctx.owner&&ctx.owner===currentProfileKey())||currentEmployee;
+      saveBtn.style.display=(canSave&&tracks.length)?'':'none';
+      openPanel('music');
+    });
+  }
 }
 
 async function loadShorts(){
   try{
-    const shorts=(await fbRead('mercado/shorts'))||[];
+    shortsAudios.forEach(a=>{try{a.pause();}catch(e){}});shortsAudios=[];
+    const adminShorts=toArr(await fbRead('mercado/shorts'));
+    let allMedia=[];let inter={};
+    try{allMedia=toArr(await fbRead('mercado/midiasUsuarios'));}catch(e){}
+    try{inter=(await fbRead(SHORTS_DB))||{};}catch(e){}
+    const tracks=allMedia.filter(m=>m.kind==='audio'&&m.url).map(m=>({url:m.url,title:(m.title||'Música')+(m.ownerName?' · '+m.ownerName:'')}));
+    const items=[
+      ...adminShorts.map(s=>({type:'admin',s,date:s.date||''})),
+      ...allMedia.filter(m=>m.kind==='video'&&m.url).map(m=>({type:'user',m,date:m.createdAt||''}))
+    ].sort((x,y)=>String(y.date).localeCompare(String(x.date)));
     const list=$('shortsList');
     const empty=$('shortsEmpty');
-    if(!shorts.length){
+    if(!items.length){
       if(empty) empty.style.display='block';
       if(list) list.innerHTML='';
       return;
@@ -1543,24 +1738,47 @@ async function loadShorts(){
     if(empty) empty.style.display='none';
     if(!list) return;
     list.innerHTML='';
-    shorts.slice().reverse().forEach(s=>{
+    items.forEach(it=>{
       const card=document.createElement('div');
       card.style.cssText='background:var(--paper);border:1px solid var(--line);border-radius:14px;overflow:hidden;';
-      const embedUrl=getEmbedUrl(s.url, s.platform);
-      const isKwai=s.platform==='kwai'||s.url.includes('kwai');
-      card.innerHTML=`
-        <div style="padding:14px 16px 10px;display:flex;align-items:center;gap:8px;">
-          <span style="font-size:20px;">${platformIcon(s.platform)}</span>
-          <strong style="font-size:15px;font-family:'Fredoka',sans-serif;color:var(--green-deep);">${s.title||'Sem título'}</strong>
-        </div>
-        ${embedUrl
-          ? `<div style="position:relative;padding-bottom:177%;height:0;"><iframe src="${embedUrl}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" allowfullscreen></iframe></div>`
-          : `<div style="padding:20px;text-align:center;background:var(--cream);">
-              <div style="font-size:40px;margin-bottom:8px;">${platformIcon(s.platform)}</div>
-              <a href="${s.url}" target="_blank" class="btn btn-primary" style="text-decoration:none;display:inline-flex;">📹 Assistir no ${s.platform==='kwai'?'Kwai':s.platform}</a>
-              ${isKwai?'<div style="font-size:11px;color:var(--muted);margin-top:8px;">O Kwai não permite visualização incorporada</div>':''}
-            </div>`
-        }`;
+      let ctx;
+      if(it.type==='user'){
+        const m=it.m;
+        const key=String(m.id).replace(/[^A-Za-z0-9_-]/g,'_');
+        const i=inter[key]||{};
+        card.innerHTML=`
+          <div style="padding:14px 16px 10px;display:flex;align-items:center;gap:8px;">
+            <span style="font-size:20px;">👤</span>
+            <div style="min-width:0;"><strong style="font-size:15px;font-family:'Fredoka',sans-serif;color:var(--green-deep);display:block;">${escShort(m.title||'Sem título')}</strong>
+            <span style="font-size:12px;color:var(--muted);">por ${escShort(m.ownerName||'Cliente')}</span></div>
+          </div>
+          <video src="${escShort(m.url)}" controls playsinline preload="metadata" style="width:100%;max-height:80vh;background:#000;display:block;"></video>`;
+        ctx={type:'user',id:m.id,key,owner:m.owner,title:m.title,shareUrl:m.url,hasVideoEl:true,tracks,music:i.music,likedBy:toArr(m.likedBy),comments:toArr(i.comments)};
+      }else{
+        const s=it.s;
+        const key=shortKey(s);
+        const i=inter[key]||{};
+        const isUpload=s.platform==='upload';
+        const embedUrl=isUpload?null:getEmbedUrl(s.url, s.platform);
+        const isKwai=!isUpload&&(s.platform==='kwai'||String(s.url).includes('kwai'));
+        card.innerHTML=`
+          <div style="padding:14px 16px 10px;display:flex;align-items:center;gap:8px;">
+            <span style="font-size:20px;">${platformIcon(s.platform)}</span>
+            <strong style="font-size:15px;font-family:'Fredoka',sans-serif;color:var(--green-deep);">${escShort(s.title||'Sem título')}</strong>
+          </div>
+          ${isUpload
+            ? `<video src="${escShort(s.url)}" controls playsinline preload="metadata" style="width:100%;max-height:80vh;background:#000;display:block;"></video>`
+            : embedUrl
+            ? `<div style="position:relative;padding-bottom:177%;height:0;"><iframe src="${embedUrl}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" allowfullscreen></iframe></div>`
+            : `<div style="padding:20px;text-align:center;background:var(--cream);">
+                <div style="font-size:40px;margin-bottom:8px;">${platformIcon(s.platform)}</div>
+                <a href="${escShort(s.url)}" target="_blank" rel="noopener" class="btn btn-primary" style="text-decoration:none;display:inline-flex;">📹 Assistir no ${s.platform==='kwai'?'Kwai':escShort(s.platform)}</a>
+                ${isKwai?'<div style="font-size:11px;color:var(--muted);margin-top:8px;">O Kwai não permite visualização incorporada</div>':''}
+              </div>`
+          }`;
+        ctx={type:'admin',key,owner:null,title:s.title,shareUrl:s.url,hasVideoEl:isUpload,tracks,music:i.music,likedBy:toArr(i.likedBy),comments:toArr(i.comments)};
+      }
+      attachShortExtras(card,ctx);
       list.appendChild(card);
     });
   }catch(e){ console.error(e); }
@@ -1587,17 +1805,42 @@ async function loadShortsAdmin(){
   }catch(e){}
 }
 
+function toggleShortFields(){
+  const up=$('shortPlatform').value==='upload';
+  $('shortFileField').style.display=up?'':'none';
+  $('shortUrlField').style.display=up?'none':'';
+}
+$('shortPlatform').addEventListener('change',toggleShortFields);
+toggleShortFields();
+
 document.getElementById('addShortBtn').addEventListener('click',async()=>{
+  const btn=$('addShortBtn');
   const title=$('shortTitle').value.trim();
-  const url=$('shortUrl').value.trim();
   const platform=$('shortPlatform').value;
-  if(!url){alert('Cola o link do vídeo!');return;}
-  const shorts=(await fbRead('mercado/shorts'))||[];
-  shorts.push({title:title||'Vídeo do '+platform,url,platform,date:new Date().toISOString()});
-  await fbWrite('mercado/shorts',shorts);
-  $('shortTitle').value='';$('shortUrl').value='';
-  loadShortsAdmin();
-  alert('✅ Vídeo adicionado!');
+  let url=$('shortUrl').value.trim();
+  try{
+    btn.disabled=true;
+    if(platform==='upload'){
+      const file=$('shortFile').files[0];
+      if(!file){alert('Escolhe um vídeo do dispositivo!');return;}
+      if(!file.type.startsWith('video/')){alert('O arquivo precisa ser um vídeo.');return;}
+      await waitFirebase();
+      const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+      url=await window.fbUploadFileResumable(file,`mercado/shorts/${Date.now()}_${safe}`,pct=>{
+        $('shortProgress').textContent='Enviando… '+Math.round(pct)+'%';
+      });
+    }else if(!url){alert('Cola o link do vídeo!');return;}
+    const shorts=(await fbRead('mercado/shorts'))||[];
+    shorts.push({title:title||'Vídeo do '+platform,url,platform,date:new Date().toISOString()});
+    await fbWrite('mercado/shorts',shorts);
+    $('shortTitle').value='';$('shortUrl').value='';$('shortFile').value='';$('shortProgress').textContent='';
+    loadShortsAdmin();
+    alert('✅ Vídeo adicionado!');
+  }catch(e){
+    console.error(e);
+    $('shortProgress').textContent='';
+    alert('Erro ao enviar o vídeo: '+(e.code||e.message)+'\nConfira as regras do Firebase Storage.');
+  }finally{btn.disabled=false;}
 });
 
 /* PWA Install */
