@@ -21,7 +21,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getDatabase, ref, set, get, enableLogging } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-  import { getStorage, ref as storageRef, uploadBytes, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+  import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
   const firebaseConfig = {
     apiKey: "AIzaSyAAPFyCcZR9xLCJ0WU0RYHSr3vdQmodgAw",
     authDomain: "portal-familia-flores-re-8ad87.firebaseapp.com",
@@ -36,10 +36,6 @@
   window.fbDB = db; window.fbRef = ref; window.fbSet = set; window.fbGet = get;
   const storage = getStorage(app);
   window.fbUploadFile = async (file, path) => { const target=storageRef(storage,path); await uploadBytes(target,file); return await getDownloadURL(target); };
-  window.fbUploadFileResumable = (file, path, onProgress) => new Promise((resolve,reject)=>{
-    const task=uploadBytesResumable(storageRef(storage,path),file);
-    task.on('state_changed',snap=>{ if(onProgress) onProgress(snap.bytesTransferred/snap.totalBytes*100); },reject,async()=>{ try{resolve(await getDownloadURL(task.snapshot.ref));}catch(e){reject(e);} });
-  });
   window.fbReady = true;
   document.dispatchEvent(new Event('firebase-ready'));
 </script>
@@ -349,7 +345,7 @@ window.addEventListener('load', ()=>{
     <section class="profile-tab-content" id="profileTabContent">
       <div class="profile-panel active" id="profilePanelPublished"><h3>Vídeos publicados</h3><div id="myPublishedVideos" class="profile-video-list"><p class="profile-empty">Você ainda não publicou vídeos.</p></div></div>
       <div class="profile-panel" id="profilePanelLiked"><h3>Vídeos curtidos</h3><div id="myLikedVideos" class="profile-video-list"><p class="profile-empty">Você ainda não curtiu vídeos.</p></div></div>
-      <div class="profile-panel" id="profilePanelAdd"><h3>Adicionar conteúdo</h3><p class="profile-help">Publique vídeo, áudio, foto ou música no seu perfil.</p><label class="profile-field-label" for="profileVideoTitle">Título</label><input id="profileVideoTitle" class="profile-video-input" type="text" maxlength="70" placeholder="Ex.: Meu conteúdo"><label class="profile-field-label" for="profileMediaFile">Enviar arquivo</label><input id="profileMediaFile" class="profile-video-input" type="file" accept="video/*,audio/*,image/*" multiple><small style="display:block;color:var(--muted);margin-top:5px;">Você pode selecionar vários vídeos, fotos ou áudios de uma vez.</small><label class="profile-field-label" for="profileVideoUrl">Ou cole um link de mídia/música</label><input id="profileVideoUrl" class="profile-video-input" type="url" placeholder="https://... "><button type="button" class="btn btn-primary" id="publishProfileVideoBtn">Publicar conteúdo</button><p id="profileVideoMessage" class="profile-help" aria-live="polite"></p></div>
+      <div class="profile-panel" id="profilePanelAdd"><h3>Adicionar conteúdo</h3><p class="profile-help">Publique vídeo, áudio, foto ou música no seu perfil.</p><label class="profile-field-label" for="profileVideoTitle">Título</label><input id="profileVideoTitle" class="profile-video-input" type="text" maxlength="70" placeholder="Ex.: Meu conteúdo"><label class="profile-field-label" for="profileMediaFile">Enviar arquivo</label><input id="profileMediaFile" class="profile-video-input" type="file" accept="video/*,audio/*,image/*"><label class="profile-field-label" for="profileVideoUrl">Ou cole um link de mídia/música</label><input id="profileVideoUrl" class="profile-video-input" type="url" placeholder="https://... "><button type="button" class="btn btn-primary" id="publishProfileVideoBtn">Publicar conteúdo</button><p id="profileVideoMessage" class="profile-help" aria-live="polite"></p></div>
       <div class="profile-panel" id="profilePanelDiscover"><h3>O que você procura?</h3><p class="profile-help">Acesse rapidamente os serviços do Mercado Família Flores.</p><div class="more-grid">
         <button class="more-card" id="drawerCart"><span>🛒</span><strong>Meu carrinho</strong><small>Ver produtos adicionados</small></button>
         <button class="more-card" id="contactBtn"><span>📞</span><strong>Contato</strong><small>Fale com a nossa equipe</small></button>
@@ -1179,74 +1175,30 @@ async function loadProfileVideos(tab){
   target.querySelectorAll('[data-remove-profile-video]').forEach(btn=>btn.addEventListener('click',async()=>{const id=btn.dataset.removeProfileVideo;const fresh=await getProfileVideoData();await fbWrite('mercado/videosUsuarios',fresh.filter(v=>!(v.id===id&&v.owner===currentProfileKey())));const media=(await fbRead('mercado/midiasUsuarios'))||[];await fbWrite('mercado/midiasUsuarios',media.filter(v=>!(v.id===id&&v.owner===currentProfileKey())));loadProfileVideos('published');}));
 }
 document.querySelectorAll('.profile-tab').forEach(btn=>btn.addEventListener('click',()=>activateProfileTab(btn.dataset.profileTab)));
-let profileUploadRunning=false;
-function showProfileUploadTray(){
-  let tray=$('profileUploadTray');
-  if(!tray){
-    tray=document.createElement('div');tray.id='profileUploadTray';
-    tray.style.cssText='position:fixed;right:12px;bottom:88px;z-index:9998;width:min(360px,calc(100vw - 24px));background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:13px;box-shadow:0 8px 28px rgba(0,0,0,.22);';
-    tray.innerHTML='<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;"><strong style="color:var(--green-deep);font-size:14px;">⬆️ Publicações em andamento</strong><span id="profileUploadCount" style="font-size:12px;color:var(--muted);"></span></div><p id="profileUploadStatus" style="font-size:12px;margin:8px 0;color:var(--ink);">Preparando envio…</p><div style="height:8px;background:var(--line);border-radius:10px;overflow:hidden;"><div id="profileUploadBar" style="height:100%;width:0%;background:var(--green);transition:width .2s;"></div></div><small id="profileUploadPercent" style="display:block;text-align:right;margin-top:5px;color:var(--muted);">0%</small>';
-    document.body.appendChild(tray);
-  }
-  return tray;
-}
-function updateProfileUploadTray(status,percent,count){
-  showProfileUploadTray();
-  $('profileUploadStatus').textContent=status;
-  $('profileUploadCount').textContent=count||'';
-  $('profileUploadBar').style.width=Math.max(0,Math.min(100,percent||0))+'%';
-  $('profileUploadPercent').textContent=Math.round(percent||0)+'%';
-}
-async function publishProfileFile(file,title,index,total){
-  if(!window.fbUploadFileResumable) throw new Error('O armazenamento ainda não ficou pronto. Atualize a página e tente novamente.');
-  const safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
-  const path='usuarios/'+currentProfileKey()+'/'+Date.now()+'_'+index+'_'+safeName;
-  const kind=file.type.startsWith('video/')?'video':file.type.startsWith('audio/')?'audio':file.type.startsWith('image/')?'image':'file';
-  const mediaUrl=await window.fbUploadFileResumable(file,path,p=>{
-    const overall=((index-1)+(p/100))/total*100;
-    updateProfileUploadTray('Enviando '+index+' de '+total+': '+file.name,overall,index+'/'+total);
-  });
-  const media=(await fbRead('mercado/midiasUsuarios'))||[];
-  media.push({id:'m'+Date.now()+'_'+index,owner:currentProfileKey(),ownerName:pendingGoogleProfile.name||'Cliente',title:title||file.name,url:mediaUrl,kind,fileName:file.name,likedBy:[],createdAt:new Date().toISOString()});
-  await fbWrite('mercado/midiasUsuarios',media);
-}
-$('publishProfileVideoBtn').addEventListener('click',()=>{
+$('publishProfileVideoBtn').addEventListener('click',async()=>{
   const msg=$('profileVideoMessage');
   if(!pendingGoogleProfile){msg.textContent='Conecte sua conta Google antes de publicar.';return;}
-  const files=Array.from($('profileMediaFile')?.files||[]);
+  const title=$('profileVideoTitle').value.trim()||'Meu conteúdo';
+  const file=$('profileMediaFile')?.files?.[0];
   const url=$('profileVideoUrl').value.trim();
-  const title=$('profileVideoTitle').value.trim();
-  if(!files.length&&!/^https?:\/\//i.test(url)){msg.textContent='Selecione um ou mais arquivos ou informe um link válido.';return;}
-  if(profileUploadRunning){msg.textContent='Já existe um envio em andamento. Aguarde ele terminar.';return;}
-  profileUploadRunning=true;
-  const total=files.length+(url?1:0);
-  msg.textContent='Envio iniciado. Você pode continuar navegando pelo site; o envio ficará nesta página em segundo plano.';
-  showProfileUploadTray();
-  $('publishProfileVideoBtn').disabled=true;
-  // Não aguardamos esta tarefa no clique: a navegação dentro do site continua liberada.
-  (async()=>{
-    try{
-      for(let i=0;i<files.length;i++) await publishProfileFile(files[i],title,i+1,total);
-      if(url){
-        const kind=/spotify|music\.apple|soundcloud|youtube|youtu\.be/i.test(url)?'music':'link';
-        const media=(await fbRead('mercado/midiasUsuarios'))||[];
-        media.push({id:'m'+Date.now()+'_link',owner:currentProfileKey(),ownerName:pendingGoogleProfile.name||'Cliente',title:title||'Meu conteúdo',url,kind,fileName:'',likedBy:[],createdAt:new Date().toISOString()});
-        await fbWrite('mercado/midiasUsuarios',media);
-        updateProfileUploadTray('Publicando link…',100,total+'/'+total);
-      }
-      $('profileVideoTitle').value='';$('profileVideoUrl').value='';$('profileMediaFile').value='';
-      msg.textContent='Todas as publicações foram concluídas!';
-      updateProfileUploadTray('Todas as publicações foram concluídas!',100,total+'/'+total);
-      loadProfileVideos('published');
-      setTimeout(()=>{const tray=$('profileUploadTray');if(tray)tray.remove();},6000);
-    }catch(e){
-      msg.textContent='Falha no envio: '+(e.message||'verifique a conexão e as permissões do Firebase Storage.');
-      updateProfileUploadTray('O envio foi interrompido. Verifique a conexão e tente novamente.',0,'');
-    }finally{
-      profileUploadRunning=false;
-      $('publishProfileVideoBtn').disabled=false;
+  if(!file&&!/^https?:\/\//i.test(url)){msg.textContent='Escolha um arquivo ou informe um link válido.';return;}
+  msg.textContent='Publicando…';
+  try{
+    let mediaUrl=url, kind='link', fileName='';
+    if(file){
+      if(!window.fbUploadFile) throw new Error('O armazenamento ainda não ficou pronto. Atualize a página e tente novamente.');
+      kind=file.type.startsWith('video/')?'video':file.type.startsWith('audio/')?'audio':file.type.startsWith('image/')?'image':'file';
+      fileName=file.name;
+      mediaUrl=await window.fbUploadFile(file,'usuarios/'+currentProfileKey()+'/'+Date.now()+'_'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_'));
+    }else{
+      kind=/spotify|music\.apple|soundcloud|youtube|youtu\.be/i.test(url)?'music':'link';
     }
-  })();
+    const media=(await fbRead('mercado/midiasUsuarios'))||[];
+    media.push({id:'m'+Date.now(),owner:currentProfileKey(),ownerName:pendingGoogleProfile.name||'Cliente',title,url:mediaUrl,kind,fileName,likedBy:[],createdAt:new Date().toISOString()});
+    await fbWrite('mercado/midiasUsuarios',media);
+    $('profileVideoTitle').value='';$('profileVideoUrl').value='';$('profileMediaFile').value='';
+    msg.textContent='Conteúdo publicado no seu perfil.';activateProfileTab('published');
+  }catch(e){msg.textContent='Não foi possível publicar: '+(e.message||'verifique as permissões do Firebase Storage.');}
 });
 async function loadCommunityMusic(){
   const box=$('communityMusicList');if(!box)return;
