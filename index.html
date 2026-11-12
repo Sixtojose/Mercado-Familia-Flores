@@ -261,6 +261,17 @@ html::-webkit-scrollbar-thumb:hover { background: #999; }
 .music-track button{border:1px solid var(--line);background:var(--cream);border-radius:10px;padding:8px 12px;cursor:pointer;font-size:15px;color:var(--ink)}
 .music-track.playing{background:rgba(40,140,75,.10)}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+#viewShorts #shortsList .short-feed-card{height:calc(100dvh - 76px);min-height:480px;position:relative;scroll-snap-align:start;scroll-snap-stop:always;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden;border:0!important;border-radius:0!important;}
+#viewShorts #shortsList .short-feed-card video{width:100%;height:100%;max-height:none!important;object-fit:contain;background:#000;}
+#viewShorts #shortsList .short-feed-title{position:absolute;left:16px;right:74px;bottom:100px;color:#fff;font-weight:700;font-size:16px;text-shadow:0 2px 7px #000;z-index:2;pointer-events:none;}
+#viewShorts #shortsList .short-feed-owner{display:block;font-size:12px;font-weight:500;margin-top:5px;}
+#viewShorts #shortsList .short-actions{position:absolute;right:8px;bottom:26px;z-index:3;display:flex;flex-direction:column;gap:7px;background:transparent;border:0;}
+#viewShorts #shortsList .short-act{background:rgba(0,0,0,.55);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:22px;padding:9px 10px;}
+#viewShorts #shortsList .short-panel{position:absolute;z-index:5;left:8px;right:72px;bottom:18px;max-height:45%;overflow:auto;background:rgba(255,255,255,.97);border-radius:12px;padding:12px;}
+#viewShorts #shortsEmpty{background:#fff;}
+</style>
 </head>
 <body>
 
@@ -295,6 +306,17 @@ html::-webkit-scrollbar-thumb:hover { background: #999; }
 </style>
 
 <script>
+// Conexão somente de leitura com o Flores Music (configuração conferida no HTML mais recente).
+const FLORES_MUSIC_SUPABASE_URL = "https://zlvawybbryqgsxqxhtrm.supabase.co";
+const FLORES_MUSIC_SUPABASE_KEY = "sb_publishable_KpiuVnIuxa1yd1pFkybR1A_gILLL_C6";
+const FLORES_MUSIC_BUCKET = "media";
+let floresMusicClient = null;
+function getFloresMusicClient(){
+  if(!window.supabase || typeof window.supabase.createClient !== "function")
+    throw new Error("A biblioteca Supabase não carregou.");
+  if(!floresMusicClient) floresMusicClient = window.supabase.createClient(FLORES_MUSIC_SUPABASE_URL,FLORES_MUSIC_SUPABASE_KEY);
+  return floresMusicClient;
+}
 window.addEventListener('load', ()=>{
   // Hide loading screen after Firebase loads and page is ready
   const hide = ()=>{
@@ -812,14 +834,14 @@ window.addEventListener('load', ()=>{
 
 <!-- SHORTS -->
 <div id="viewShorts" style="display:none;">
-  <main style="max-width:500px;margin:0 auto;padding:20px 16px 80px;">
-    <h2 style="font-family:'Fredoka',sans-serif;color:var(--green-deep);margin:0 0 18px;">📱 Shorts & Vídeos</h2>
+  <main style="max-width:500px;margin:0 auto;padding:0 0 76px;">
+    <h2 style="position:absolute;z-index:4;top:12px;left:16px;color:#fff;text-shadow:0 2px 8px #000;font-family:'Fredoka',sans-serif;margin:0;pointer-events:none;">📱 Shorts</h2>
     <div id="shortsEmpty" style="text-align:center;padding:60px 20px;color:var(--muted);">
       <div style="font-size:50px;margin-bottom:12px;">📱</div>
       <div style="font-family:'Fredoka',sans-serif;font-size:18px;color:var(--green-deep);">Nenhum vídeo publicado ainda</div>
       <div style="font-size:13px;margin-top:6px;">O administrador ainda não adicionou vídeos.</div>
     </div>
-    <div id="shortsList" style="display:flex;flex-direction:column;gap:24px;"></div>
+    <div id="shortsList" style="height:calc(100dvh - 76px);overflow-y:auto;scroll-snap-type:y mandatory;overscroll-behavior-y:contain;background:#000;"></div>
     <footer class="company-footer"><strong>Mercado Família Flores</strong><span id="companyFooterAddress">📍 Rua Vicente Mouta Rodrigues, 554 — Boa Vista/RR</span><span id="companyFooterPhone">☎ (95) 99125-3420</span><span id="companyFooterEmail">✉ burgosislen@gmail.com</span></footer>
   </main>
 </div>
@@ -1780,7 +1802,7 @@ function detectShortPlatform(url){
 }
 function shortMediaHtml(url,platform){
   if(platform==='upload'){
-    return `<video src="${escShort(url)}#t=0.1" controls playsinline preload="metadata" style="width:100%;max-height:80vh;background:#000;display:block;"></video>`;
+    return `<video src="${escShort(url)}#t=0.1" controls playsinline muted preload="metadata" style="width:100%;height:100%;object-fit:contain;background:#000;display:block;"></video>`;
   }
   const embedUrl=getEmbedUrl(url,platform);
   if(embedUrl){
@@ -1801,10 +1823,24 @@ async function loadShorts(){
     try{allMedia=toArr(await fbRead('mercado/midiasUsuarios'));}catch(e){}
     try{legacy=toArr(await fbRead('mercado/videosUsuarios'));}catch(e){}
     try{inter=(await fbRead(SHORTS_DB))||{};}catch(e){}
+    // Vídeos publicados no Flores Music (Supabase) — somente leitura.
+    let floresMusicVideos=[];
+    try{
+      {
+        const fmClient=getFloresMusicClient();
+        const {data,error}=await fmClient.from('media').select('id,title,type,storage_path,created_at,deleted_at').eq('type','video').is('deleted_at',null).order('created_at',{ascending:false});
+        if(error)throw error;
+        floresMusicVideos=(data||[]).filter(x=>x.storage_path).map(x=>({
+          id:x.id,title:x.title||'Vídeo',date:x.created_at||'',
+          url:fmClient.storage.from(FLORES_MUSIC_BUCKET).getPublicUrl(x.storage_path).data.publicUrl
+        }));
+      }
+    }catch(fmError){console.warn('Não foi possível carregar vídeos do Flores Music:',fmError);}
     const tracks=allMedia.filter(m=>m.kind==='audio'&&m.url).map(m=>({url:m.url,section:musicSectionOf(m),title:(m.title||'Música')+(m.ownerName?' · '+m.ownerName:'')}));
 
     // Tudo que for vídeo entra no Short, igual aos vídeos do site
     const items=[];
+    floresMusicVideos.forEach(v=>items.push({store:null,platform:'upload',url:v.url,title:v.title,owner:null,ownerName:'Flores Music',date:v.date,key:'fm_'+String(v.id).replace(/[^A-Za-z0-9_-]/g,'_'),likedBy:null,id:v.id,source:'flores-music'}));
     adminShorts.forEach(s=>items.push({store:null,s,platform:s.platform||detectShortPlatform(s.url),url:s.url,title:s.title,owner:null,ownerName:'',date:s.date||'',key:shortKey(s),likedBy:null}));
     allMedia.forEach(m=>{
       if(!m.url)return;
@@ -1839,9 +1875,8 @@ async function loadShorts(){
     items.forEach(it=>{
       const i=inter[it.key]||{};
       const card=document.createElement('div');
-      card.style.cssText='background:var(--paper);border:1px solid var(--line);border-radius:14px;overflow:hidden;';
-      card.innerHTML=`
-        ${shortMediaHtml(it.url,it.platform)}`;
+      card.className='short-feed-card';
+      card.innerHTML=`${shortMediaHtml(it.url,it.platform)}<div class="short-feed-title">${escShort(it.title||'Vídeo')}<span class="short-feed-owner">${escShort(it.ownerName||'Mercado Família Flores')}</span></div>`;
       const ctx={
         type:it.store?'user':'admin',store:it.store,id:it.id,key:it.key,owner:it.owner,title:it.title,shareUrl:it.url,
         hasVideoEl:it.platform==='upload',tracks,music:i.music,
@@ -1849,6 +1884,21 @@ async function loadShorts(){
       };
       attachShortExtras(card,ctx);
       list.appendChild(card);
+    });
+    // Reproduz automaticamente apenas o vídeo que estiver visível no feed.
+    if(window.__mercadoShortObserver)window.__mercadoShortObserver.disconnect();
+    window.__mercadoShortObserver=new IntersectionObserver(entries=>{
+      entries.forEach(entry=>{
+        const v=entry.target.querySelector('video');
+        if(!v)return;
+        if(entry.isIntersecting&&entry.intersectionRatio>=0.65){
+          document.querySelectorAll('#shortsList video').forEach(other=>{if(other!==v)other.pause();});
+          v.muted=true;v.playsInline=true;v.play().catch(()=>{});
+        }else v.pause();
+      });
+    },{root:list,threshold:[0,0.65,1]});
+    list.querySelectorAll('.short-feed-card').forEach(card=>{
+      const v=card.querySelector('video');if(v)window.__mercadoShortObserver.observe(card);
     });
   }catch(e){ console.error(e); }
 }
