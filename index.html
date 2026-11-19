@@ -264,13 +264,19 @@ html::-webkit-scrollbar-thumb:hover { background: #999; }
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 #viewShorts #shortsList .short-feed-card{height:calc(100dvh - 76px);min-height:480px;position:relative;scroll-snap-align:start;scroll-snap-stop:always;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden;border:0!important;border-radius:0!important;}
-#viewShorts #shortsList .short-feed-card video{width:100%;height:100%;max-height:none!important;object-fit:contain;background:#000;}
+#viewShorts #shortsList .short-feed-card video{width:100%;height:100%;max-height:none!important;object-fit:cover;background:#000;display:block;}
 #viewShorts #shortsList .short-feed-title{position:absolute;left:16px;right:74px;bottom:100px;color:#fff;font-weight:700;font-size:16px;text-shadow:0 2px 7px #000;z-index:2;pointer-events:none;}
+#viewShorts #shortsList .short-sound-toggle{position:absolute;top:16px;right:14px;z-index:5;border:1px solid rgba(255,255,255,.65);border-radius:22px;padding:9px 13px;background:rgba(0,0,0,.62);color:#fff;font-weight:700;font-size:13px;cursor:pointer;backdrop-filter:blur(4px);}
+#viewShorts #shortsList .short-sound-toggle:active{transform:scale(.96);}
 #viewShorts #shortsList .short-feed-owner{display:block;font-size:12px;font-weight:500;margin-top:5px;}
-#viewShorts #shortsList .short-actions{position:absolute;right:8px;bottom:26px;z-index:3;display:flex;flex-direction:column;gap:7px;background:transparent;border:0;}
-#viewShorts #shortsList .short-act{background:rgba(0,0,0,.55);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:22px;padding:9px 10px;}
+#viewShorts #shortsList .short-actions{position:absolute;right:12px;bottom:30px;z-index:3;display:flex;flex-direction:column;gap:12px;background:transparent;border:0;padding:0;}
+#viewShorts #shortsList .short-act{background:rgba(0,0,0,.62);color:#fff;border:1px solid rgba(255,255,255,.45);border-radius:26px;min-width:52px;min-height:52px;padding:12px 13px;font-size:21px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;box-shadow:0 2px 10px rgba(0,0,0,.25);}
+#viewShorts #shortsList .short-act span{font-size:12px;font-weight:700;}
 #viewShorts #shortsList .short-panel{position:absolute;z-index:5;left:8px;right:72px;bottom:18px;max-height:45%;overflow:auto;background:rgba(255,255,255,.97);border-radius:12px;padding:12px;}
 #viewShorts #shortsEmpty{background:#fff;}
+#viewShorts #shortsList{height:calc(100dvh - 76px)!important;min-height:480px;}
+#viewShorts .company-footer{display:none;}
+@media(max-width:600px){#viewShorts #shortsList .short-feed-card{height:calc(100dvh - 68px);min-height:0;}#viewShorts #shortsList .short-feed-card video{object-fit:cover;}#viewShorts #shortsList .short-actions{right:10px;bottom:22px;gap:13px;}#viewShorts #shortsList .short-act{min-width:54px;min-height:54px;font-size:22px;}}
 </style>
 </head>
 <body>
@@ -887,11 +893,28 @@ async function loadCompanyFooters(){
     });
   }catch(e){}
 }
+const CUSTOMER_SESSION_KEY='mercadoFloresCustomerSessionV1';
+function saveCustomerSession(profile){
+  try{localStorage.setItem(CUSTOMER_SESSION_KEY,JSON.stringify({name:profile.name||'',email:profile.email||'',picture:profile.picture||''}));}catch(e){}
+}
+function clearCustomerSession(){try{localStorage.removeItem(CUSTOMER_SESSION_KEY);}catch(e){}}
+function restoreCustomerSession(){
+  try{
+    const cached=JSON.parse(localStorage.getItem(CUSTOMER_SESSION_KEY)||'null');
+    if(!cached||!cached.email)return;
+    const saved=customers.find(c=>String(c.email||'').toLowerCase()===String(cached.email).toLowerCase());
+    if(!saved){clearCustomerSession();return;}
+    pendingGoogleProfile={...saved,name:saved.name||cached.name||'',email:saved.email,picture:cached.picture||saved.picture||''};
+    showCustomerProfile(pendingGoogleProfile);
+  }catch(e){clearCustomerSession();}
+}
+
 async function loadAll(){
   try{ products=(await fbRead('mercado/produtos'))||[]; }catch(e){ products=[]; }
   try{ employees=(await fbRead('mercado/funcionarios'))||[]; }catch(e){ employees=[]; }
   if(!employees.length){ employees=[{name:'admin',password:'admin123'}]; await fbWrite('mercado/funcionarios',employees); }
   try{ customers=(await fbRead('mercado/clientes'))||[]; }catch(e){ customers=[]; }
+  restoreCustomerSession();
   try{ cart=(await fbRead('mercado/carrinho'))||{}; }catch(e){ cart={}; }
   renderStore(); renderCart(); loadSocial(); loadCompanyFooters(); updateCustomScrollRail();
 }
@@ -902,7 +925,7 @@ async function saveCart(){ try{ await fbWrite('mercado/carrinho',cart); }catch(e
 
 /* Views */
 function showView(id){
-  if(id!=='viewShorts'){document.querySelectorAll('#shortsList video').forEach(v=>{try{v.pause();}catch(e){}});}
+  if(id!=='viewShorts'){document.querySelectorAll('#shortsList video').forEach(v=>{try{v.pause();if(v.hasAttribute('src')){v.removeAttribute('src');v.load();}}catch(e){}});}
   ['viewStore','viewLogin','viewAdmin','viewCart','viewPedidos','viewJogos','viewShorts','viewMore','viewMusic'].forEach(v=>{const el=$(v);if(el)el.style.display=v===id?'':'none';});
   const mainMenus=['viewStore','viewShorts','viewMusic','viewJogos','viewMore'];
   const topbar=$('mainTopbar');
@@ -1119,6 +1142,7 @@ $('customerAvatarBtn').addEventListener('click',()=>{
 $('profileSignInBtn').addEventListener('click',()=>{ const join=$('joinUsBtn'); if(join) join.click(); });
 
 $('logoutClienteBtn').addEventListener('click',()=>{
+  clearCustomerSession();
   pendingGoogleProfile=null;
   $('customerAvatarBtn').style.display='none';
   const moreCard=$('moreProfileCard'); if(moreCard) moreCard.style.display='flex';
@@ -1628,6 +1652,7 @@ function shortKey(s){
 
 async function toggleShortLike(ctx){
   const me=currentProfileKey();
+  let likedBy=[];
   if(ctx.type==='user'){
     const store=ctx.store||'mercado/midiasUsuarios';
     const media=toArr(await fbRead(store));
@@ -1637,13 +1662,18 @@ async function toggleShortLike(ctx){
     set.has(me)?set.delete(me):set.add(me);
     media[idx].likedBy=[...set];
     await fbWrite(store,media);
-    return [...set];
+    likedBy=[...set];
+  }else{
+    const path=SHORTS_DB+'/'+ctx.key+'/likedBy';
+    const set=new Set(toArr(await fbRead(path)));
+    set.has(me)?set.delete(me):set.add(me);
+    await fbWrite(path,[...set]);
+    likedBy=[...set];
   }
-  const path=SHORTS_DB+'/'+ctx.key+'/likedBy';
-  const set=new Set(toArr(await fbRead(path)));
-  set.has(me)?set.delete(me):set.add(me);
-  await fbWrite(path,[...set]);
-  return [...set];
+  // Guarda também a ordem temporal das curtidas para aprender sequências entre clientes.
+  // Um valor null remove o registro quando a pessoa desfaz a curtida.
+  await fbWrite(SHORTS_DB+'/'+ctx.key+'/likedAt/'+me,likedBy.includes(me)?Date.now():null);
+  return likedBy;
 }
 
 function musicOptionsHtml(tracks){
@@ -1745,7 +1775,7 @@ function attachShortExtras(card,ctx){
       selIdx=tracks.findIndex(t=>t.url===ctx.music.url);
       if(selIdx<0){tracks.push({url:ctx.music.url,title:ctx.music.title||'Música do vídeo'});selIdx=tracks.length-1;}
     }
-    const audio=new Audio();audio.loop=true;audio.preload='auto';audio.volume=0.5;
+    const audio=new Audio();audio.loop=true;audio.preload='none';audio.volume=0.5;
     shortsAudios.push(audio);
     function setTrack(i){
       selIdx=i;
@@ -1802,7 +1832,7 @@ function detectShortPlatform(url){
 }
 function shortMediaHtml(url,platform){
   if(platform==='upload'){
-    return `<video src="${escShort(url)}#t=0.1" controls playsinline muted preload="metadata" style="width:100%;height:100%;object-fit:contain;background:#000;display:block;"></video>`;
+    return `<video data-src="${escShort(url)}" controls playsinline preload="none" style="width:100%;height:100%;object-fit:cover;background:#000;display:block;"></video>`;
   }
   const embedUrl=getEmbedUrl(url,platform);
   if(embedUrl){
@@ -1860,7 +1890,66 @@ async function loadShorts(){
       const id=v.id||shortKey(v);
       items.push({store:'mercado/videosUsuarios',m:v,platform:pf,url:v.url,title:v.title,owner:v.owner,ownerName:v.ownerName,date:v.createdAt||v.date||'',key:'l'+String(id).replace(/[^A-Za-z0-9_-]/g,'_'),likedBy:v.likedBy,id});
     });
-    items.sort((x,y)=>String(y.date).localeCompare(String(x.date)));
+    // Curtidas reais e histórico temporal de cada vídeo.
+    items.forEach(it=>{
+      const saved=inter[it.key]||{};
+      it._likes=toArr(it.store?it.likedBy:saved.likedBy);
+      it._likedAt=(saved.likedAt&&typeof saved.likedAt==='object')?saved.likedAt:{};
+      it._id=String(it.key);
+    });
+
+    // Recomendação colaborativa com sequência: se dois clientes curtiram o mesmo
+    // vídeo, recomenda ao segundo os próximos vídeos curtidos pelo primeiro.
+    const me=currentProfileKey();
+    const myLiked=new Set(items.filter(it=>it._likes.includes(me)).map(it=>it._id));
+    const customerSequences={};
+    items.forEach(it=>{
+      it._likes.forEach(user=>{
+        if(!user||user===me)return;
+        const at=Number(it._likedAt[user]||0);
+        (customerSequences[user]||(customerSequences[user]=[])).push({id:it._id,at,likes:it._likes});
+      });
+    });
+    Object.values(customerSequences).forEach(seq=>seq.sort((a,b)=>{
+      if(a.at&&b.at)return a.at-b.at;
+      if(a.at)return -1;
+      if(b.at)return 1;
+      return 0;
+    }));
+    const recommendationScores={};
+    Object.entries(customerSequences).forEach(([user,seq])=>{
+      const shared=seq.filter(x=>myLiked.has(x.id)).length;
+      if(!shared)return;
+      // Clientes com mais curtidas em comum têm maior peso.
+      const similarity=shared/(shared+1);
+      seq.forEach((entry,index)=>{
+        if(myLiked.has(entry.id))return;
+        let sequenceBoost=0;
+        // Dá prioridade a vídeos curtidos depois de um vídeo em comum.
+        for(let j=0;j<index;j++){
+          if(myLiked.has(seq[j].id)){
+            sequenceBoost=Math.max(sequenceBoost,1/(index-j));
+          }
+        }
+        recommendationScores[entry.id]=(recommendationScores[entry.id]||0)+similarity*(1+sequenceBoost*2);
+      });
+    });
+    items.forEach(it=>{
+      it._recommendScore=myLiked.has(it._id)?-1:(recommendationScores[it._id]||0);
+      // Pequena variação para não deixar o feed sempre idêntico; relevância prevalece.
+      it._rank=it._recommendScore*10+Math.random()*1.5;
+    });
+    items.sort((a,b)=>b._rank-a._rank);
+    // Evita começar com o mesmo vídeo da visita anterior, quando houver alternativas.
+    try{
+      const first=items[0]&&items[0]._id;
+      const previous=sessionStorage.getItem('mff_last_short_first');
+      if(first&&first===previous&&items.length>1){
+        const swap=items.findIndex((x,i)=>i>0&&x._id!==previous);
+        if(swap>0)[items[0],items[swap]]=[items[swap],items[0]];
+      }
+      if(items[0])sessionStorage.setItem('mff_last_short_first',items[0]._id);
+    }catch(e){}
 
     const list=$('shortsList');
     const empty=$('shortsEmpty');
@@ -1877,26 +1966,52 @@ async function loadShorts(){
       const card=document.createElement('div');
       card.className='short-feed-card';
       card.innerHTML=`${shortMediaHtml(it.url,it.platform)}<div class="short-feed-title">${escShort(it.title||'Vídeo')}<span class="short-feed-owner">${escShort(it.ownerName||'Mercado Família Flores')}</span></div>`;
+      const shortVideo=card.querySelector('video');
+      if(shortVideo){
+        if(typeof window.__shortsSoundEnabled==='undefined')window.__shortsSoundEnabled=true;
+        const soundBtn=document.createElement('button');
+        soundBtn.type='button';soundBtn.className='short-sound-toggle';
+        soundBtn.textContent=window.__shortsSoundEnabled?'🔊 Som ligado':'🔇 Ativar som';
+        shortVideo.muted=false;shortVideo.volume=1;
+        soundBtn.setAttribute('aria-label','Ativar ou silenciar o som dos vídeos');
+        soundBtn.addEventListener('click',()=>{
+          window.__shortsSoundEnabled=!window.__shortsSoundEnabled;
+          document.querySelectorAll('#shortsList .short-sound-toggle').forEach(b=>b.textContent=window.__shortsSoundEnabled?'🔊 Som ligado':'🔇 Som desligado');
+          // O botão só altera o áudio; nunca inicia a reprodução.
+          document.querySelectorAll('#shortsList video').forEach(v=>{v.muted=!window.__shortsSoundEnabled;if(window.__shortsSoundEnabled)v.volume=1;});
+        });
+        card.appendChild(soundBtn);
+      }
       const ctx={
         type:it.store?'user':'admin',store:it.store,id:it.id,key:it.key,owner:it.owner,title:it.title,shareUrl:it.url,
         hasVideoEl:it.platform==='upload',tracks,music:i.music,
-        likedBy:toArr(it.store?it.likedBy:i.likedBy),comments:toArr(i.comments)
+        likedBy:it._likes,comments:toArr(i.comments)
       };
       attachShortExtras(card,ctx);
       list.appendChild(card);
     });
-    // Reproduz automaticamente apenas o vídeo que estiver visível no feed.
+    // Carrega somente o vídeo visível; não inicia reprodução automática.
+    // Ao mudar de Short, pausa e libera o arquivo anterior para reduzir memória e rede.
     if(window.__mercadoShortObserver)window.__mercadoShortObserver.disconnect();
     window.__mercadoShortObserver=new IntersectionObserver(entries=>{
       entries.forEach(entry=>{
         const v=entry.target.querySelector('video');
         if(!v)return;
         if(entry.isIntersecting&&entry.intersectionRatio>=0.65){
-          document.querySelectorAll('#shortsList video').forEach(other=>{if(other!==v)other.pause();});
-          v.muted=true;v.playsInline=true;v.play().catch(()=>{});
-        }else v.pause();
+          list.querySelectorAll('video').forEach(other=>{
+            if(other===v)return;
+            other.pause();
+            if(other.hasAttribute('src')){other.removeAttribute('src');other.load();}
+          });
+          if(!v.hasAttribute('src')&&v.dataset.src){v.src=v.dataset.src;v.load();}
+          v.muted=!window.__shortsSoundEnabled;
+          if(window.__shortsSoundEnabled)v.volume=1;
+        }else if(entry.intersectionRatio<0.25){
+          v.pause();
+          if(v.hasAttribute('src')){v.removeAttribute('src');v.load();}
+        }
       });
-    },{root:list,threshold:[0,0.65,1]});
+    },{root:list,threshold:[0,0.25,0.65,1]});
     list.querySelectorAll('.short-feed-card').forEach(card=>{
       const v=card.querySelector('video');if(v)window.__mercadoShortObserver.observe(card);
     });
@@ -2335,7 +2450,18 @@ function stopScanner(){
 
 /* Google Join */
 function parseJwt(token){try{const b=token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');const j=decodeURIComponent(atob(b).split('').map(c=>'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)).join(''));return JSON.parse(j);}catch(e){return null;}}
-function onGoogleSignIn(response){const profile=parseJwt(response.credential);if(!profile||!profile.email)return;pendingGoogleProfile={name:profile.name||'',email:profile.email,picture:profile.picture||''};showCustomerProfile(pendingGoogleProfile);openExtraInfoModal();}
+function onGoogleSignIn(response){
+  const profile=parseJwt(response.credential);if(!profile||!profile.email)return;
+  const existing=customers.find(c=>String(c.email||'').toLowerCase()===String(profile.email).toLowerCase());
+  if(existing){
+    pendingGoogleProfile={...existing,name:profile.name||existing.name||'',email:profile.email,picture:profile.picture||existing.picture||''};
+    saveCustomerSession(pendingGoogleProfile);showCustomerProfile(pendingGoogleProfile);closeModal();
+    alert('Bem-vindo de volta! Seu cadastro já está salvo.');
+    return;
+  }
+  pendingGoogleProfile={name:profile.name||'',email:profile.email,picture:profile.picture||''};
+  showCustomerProfile(pendingGoogleProfile);openExtraInfoModal();
+}
 $('moreProfileConnectBtn').addEventListener('click',()=>{ $('joinUsBtn').click(); });
 $('joinUsBtn').addEventListener('click',()=>{
   openModal(`<h2>Junte-se a nós</h2><p class="address-line">Entra com a tua conta Google para te cadastrar.</p><div id="googleBtnContainer" style="margin:16px 0;display:flex;justify-content:center;"></div><p class="hint" id="googleFallbackMsg" style="display:none;">Login do Google disponível apenas na página publicada.</p>`);
@@ -2351,7 +2477,8 @@ function openExtraInfoModal(){
     const phone=$('custPhone').value.trim();if(!phone){$('custError').textContent='Informe um telefone.';return;}
     const record={...pendingGoogleProfile,phone,address:$('custAddress').value.trim(),registeredAt:new Date().toISOString()};
     customers=customers.filter(c=>c.email!==pendingGoogleProfile.email);customers.push(record);
-    await saveCustomers();renderCustomersTable();closeModal();alert('Cadastro concluído!');
+    pendingGoogleProfile=record;saveCustomerSession(record);
+    await saveCustomers();renderCustomersTable();showCustomerProfile(record);closeModal();alert('Cadastro concluído!');
   });
 }
 
@@ -2491,7 +2618,7 @@ loadAll();
 </script>
 <script>
 if('serviceWorker' in navigator){
-  const sw = `const CACHE='mercado-v2';const S=['./','/index.html'];
+  const sw = `const CACHE='mercado-v3-shorts-login';const S=['./','/index.html'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(S).catch(()=>{})));self.skipWaiting();});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==CACHE).map(x=>caches.delete(x)))));self.clients.claim();});
 self.addEventListener('fetch',e=>{if(e.request.url.includes('firebaseio.com')||e.request.url.includes('googleapis.com')||e.request.url.includes('anthropic.com'))return;e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(res=>{if(res&&res.status===200){const c=res.clone();caches.open(CACHE).then(ca=>ca.put(e.request,c));}return res;}).catch(()=>caches.match('/index.html'))));});`;
