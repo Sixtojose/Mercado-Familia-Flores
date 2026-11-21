@@ -239,9 +239,6 @@ html::-webkit-scrollbar-thumb:hover { background: #999; }
 #customScrollThumb:active{background:#555;cursor:grabbing;}
 </style>
 <style>
-#viewShorts #shortsList video{object-fit:contain!important;}
-#viewShorts main{padding-top:10px!important;}
-#viewShorts #shortsList>div{border-radius:12px!important;}
 .short-actions{display:flex;gap:4px;padding:6px 10px;border-top:1px solid var(--line);flex-wrap:wrap;align-items:center}
 .short-act{border:0;background:transparent;font-size:15px;padding:9px 11px;border-radius:10px;cursor:pointer;color:var(--ink);display:inline-flex;gap:5px;align-items:center;font-family:inherit}
 .short-act:active,.short-act.on{background:rgba(40,140,75,.13)}
@@ -263,6 +260,24 @@ html::-webkit-scrollbar-thumb:hover { background: #999; }
 .music-track strong{overflow-wrap:anywhere}
 .music-track button{border:1px solid var(--line);background:var(--cream);border-radius:10px;padding:8px 12px;cursor:pointer;font-size:15px;color:var(--ink)}
 .music-track.playing{background:rgba(40,140,75,.10)}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+#viewShorts #shortsList .short-feed-card{height:calc(100dvh - 76px);min-height:480px;position:relative;scroll-snap-align:start;scroll-snap-stop:always;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden;border:0!important;border-radius:0!important;}
+#viewShorts #shortsList .short-feed-card video{width:100%;height:100%;max-height:none!important;object-fit:contain;background:#000;display:block;}
+#viewShorts #shortsList .short-feed-title{position:absolute;left:16px;right:74px;bottom:100px;color:#fff;font-weight:700;font-size:16px;text-shadow:0 2px 7px #000;z-index:2;pointer-events:none;}
+#viewShorts #shortsList .short-sound-toggle{position:absolute;top:16px;right:14px;z-index:5;border:1px solid rgba(255,255,255,.65);border-radius:22px;padding:9px 13px;background:rgba(0,0,0,.62);color:#fff;font-weight:700;font-size:13px;cursor:pointer;backdrop-filter:blur(4px);}
+#viewShorts #shortsList .short-sound-toggle:active{transform:scale(.96);}
+#viewShorts #shortsList .short-feed-owner{display:block;font-size:12px;font-weight:500;margin-top:5px;}
+#viewShorts #shortsList .short-actions{position:absolute;right:8px;bottom:110px;z-index:3;display:flex;flex-direction:column;gap:12px;background:transparent;border:0;padding:0;}
+#viewShorts #shortsList .short-act{background:rgba(0,0,0,.62);color:#fff;border:1px solid rgba(255,255,255,.45);border-radius:26px;min-width:52px;min-height:52px;padding:12px 13px;font-size:21px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;box-shadow:0 2px 10px rgba(0,0,0,.25);}
+#viewShorts #shortsList .short-act span{font-size:12px;font-weight:700;}
+#customScrollRail:has(+ #viewShorts), body:has(#viewShorts[style*="display: block"]) #customScrollRail{display:none!important;}
+#viewShorts #shortsList .short-panel{position:absolute;z-index:5;left:8px;right:72px;top:50%;transform:translateY(-50%);max-height:48%;overflow:auto;background:rgba(255,255,255,.97);border-radius:12px;padding:12px;}
+#viewShorts #shortsEmpty{background:#fff;}
+#viewShorts #shortsList{height:calc(100dvh - 76px)!important;min-height:480px;}
+#viewShorts .company-footer{display:none;}
+@media(max-width:600px){#viewShorts #shortsList .short-feed-card{height:calc(100dvh - 68px);min-height:0;}#viewShorts #shortsList .short-feed-card video{object-fit:contain;}#viewShorts #shortsList .short-actions{right:8px;bottom:110px;gap:13px;}#viewShorts #shortsList .short-act{min-width:54px;min-height:54px;font-size:22px;}}
 </style>
 </head>
 <body>
@@ -298,6 +313,17 @@ html::-webkit-scrollbar-thumb:hover { background: #999; }
 </style>
 
 <script>
+// Conexão somente de leitura com o Flores Music (configuração conferida no HTML mais recente).
+const FLORES_MUSIC_SUPABASE_URL = "https://zlvawybbryqgsxqxhtrm.supabase.co";
+const FLORES_MUSIC_SUPABASE_KEY = "sb_publishable_KpiuVnIuxa1yd1pFkybR1A_gILLL_C6";
+const FLORES_MUSIC_BUCKET = "media";
+let floresMusicClient = null;
+function getFloresMusicClient(){
+  if(!window.supabase || typeof window.supabase.createClient !== "function")
+    throw new Error("A biblioteca Supabase não carregou.");
+  if(!floresMusicClient) floresMusicClient = window.supabase.createClient(FLORES_MUSIC_SUPABASE_URL,FLORES_MUSIC_SUPABASE_KEY);
+  return floresMusicClient;
+}
 window.addEventListener('load', ()=>{
   // Hide loading screen after Firebase loads and page is ready
   const hide = ()=>{
@@ -815,14 +841,14 @@ window.addEventListener('load', ()=>{
 
 <!-- SHORTS -->
 <div id="viewShorts" style="display:none;">
-  <main style="max-width:500px;margin:0 auto;padding:20px 16px 80px;">
-    <h2 style="font-family:'Fredoka',sans-serif;color:var(--green-deep);margin:0 0 18px;">📱 Shorts & Vídeos</h2>
+  <main style="max-width:500px;margin:0 auto;padding:0 0 76px;">
+    <h2 style="position:absolute;z-index:4;top:12px;left:16px;color:#fff;text-shadow:0 2px 8px #000;font-family:'Fredoka',sans-serif;margin:0;pointer-events:none;">📱 Shorts</h2>
     <div id="shortsEmpty" style="text-align:center;padding:60px 20px;color:var(--muted);">
       <div style="font-size:50px;margin-bottom:12px;">📱</div>
       <div style="font-family:'Fredoka',sans-serif;font-size:18px;color:var(--green-deep);">Nenhum vídeo publicado ainda</div>
       <div style="font-size:13px;margin-top:6px;">O administrador ainda não adicionou vídeos.</div>
     </div>
-    <div id="shortsList" style="display:flex;flex-direction:column;gap:12px;"></div>
+    <div id="shortsList" style="height:calc(100dvh - 76px);overflow-y:auto;scroll-snap-type:y mandatory;overscroll-behavior-y:contain;background:#000;"></div>
     <footer class="company-footer"><strong>Mercado Família Flores</strong><span id="companyFooterAddress">📍 Rua Vicente Mouta Rodrigues, 554 — Boa Vista/RR</span><span id="companyFooterPhone">☎ (95) 99125-3420</span><span id="companyFooterEmail">✉ burgosislen@gmail.com</span></footer>
   </main>
 </div>
@@ -868,11 +894,28 @@ async function loadCompanyFooters(){
     });
   }catch(e){}
 }
+const CUSTOMER_SESSION_KEY='mercadoFloresCustomerSessionV1';
+function saveCustomerSession(profile){
+  try{localStorage.setItem(CUSTOMER_SESSION_KEY,JSON.stringify({name:profile.name||'',email:profile.email||'',picture:profile.picture||''}));}catch(e){}
+}
+function clearCustomerSession(){try{localStorage.removeItem(CUSTOMER_SESSION_KEY);}catch(e){}}
+function restoreCustomerSession(){
+  try{
+    const cached=JSON.parse(localStorage.getItem(CUSTOMER_SESSION_KEY)||'null');
+    if(!cached||!cached.email)return;
+    const saved=customers.find(c=>String(c.email||'').toLowerCase()===String(cached.email).toLowerCase());
+    if(!saved){clearCustomerSession();return;}
+    pendingGoogleProfile={...saved,name:saved.name||cached.name||'',email:saved.email,picture:cached.picture||saved.picture||''};
+    showCustomerProfile(pendingGoogleProfile);
+  }catch(e){clearCustomerSession();}
+}
+
 async function loadAll(){
   try{ products=(await fbRead('mercado/produtos'))||[]; }catch(e){ products=[]; }
   try{ employees=(await fbRead('mercado/funcionarios'))||[]; }catch(e){ employees=[]; }
   if(!employees.length){ employees=[{name:'admin',password:'admin123'}]; await fbWrite('mercado/funcionarios',employees); }
   try{ customers=(await fbRead('mercado/clientes'))||[]; }catch(e){ customers=[]; }
+  restoreCustomerSession();
   try{ cart=(await fbRead('mercado/carrinho'))||{}; }catch(e){ cart={}; }
   renderStore(); renderCart(); loadSocial(); loadCompanyFooters(); updateCustomScrollRail();
 }
@@ -883,7 +926,7 @@ async function saveCart(){ try{ await fbWrite('mercado/carrinho',cart); }catch(e
 
 /* Views */
 function showView(id){
-  if(id!=='viewShorts'){document.querySelectorAll('#shortsList video').forEach(v=>{try{v.pause();}catch(e){}});}
+  if(id!=='viewShorts'){document.querySelectorAll('#shortsList video').forEach(v=>{try{v.pause();if(v.hasAttribute('src')){v.removeAttribute('src');v.load();}}catch(e){}});}
   ['viewStore','viewLogin','viewAdmin','viewCart','viewPedidos','viewJogos','viewShorts','viewMore','viewMusic'].forEach(v=>{const el=$(v);if(el)el.style.display=v===id?'':'none';});
   const mainMenus=['viewStore','viewShorts','viewMusic','viewJogos','viewMore'];
   const topbar=$('mainTopbar');
@@ -921,7 +964,7 @@ const scrollRail=$('customScrollRail'), scrollThumb=$('customScrollThumb');
 function isMainMenuVisible(){return ['viewStore','viewShorts','viewMusic','viewJogos','viewMore'].some(id=>{const el=$(id);return el&&el.style.display!=='none';});}
 function updateCustomScrollRail(){
   if(!scrollRail||!scrollThumb)return;
-  const active=isMainMenuVisible(); const inShorts=!!($('viewShorts')&&$('viewShorts').style.display!=='none'); scrollRail.style.display=active&&!inShorts?'block':'none'; if(!active||inShorts)return;
+  const active=isMainMenuVisible(); const shortsActive=$('viewShorts')&&$('viewShorts').style.display!=='none'; scrollRail.style.display=(active&&!shortsActive)?'block':'none'; if(!active||shortsActive)return;
   const track=scrollRail.clientHeight, full=Math.max(document.documentElement.scrollHeight,document.body.scrollHeight), view=window.innerHeight;
   const thumbH=Math.max(42,Math.min(track,track*(view/full)));
   const maxScroll=Math.max(1,full-view), maxTop=Math.max(0,track-thumbH);
@@ -1100,6 +1143,7 @@ $('customerAvatarBtn').addEventListener('click',()=>{
 $('profileSignInBtn').addEventListener('click',()=>{ const join=$('joinUsBtn'); if(join) join.click(); });
 
 $('logoutClienteBtn').addEventListener('click',()=>{
+  clearCustomerSession();
   pendingGoogleProfile=null;
   $('customerAvatarBtn').style.display='none';
   const moreCard=$('moreProfileCard'); if(moreCard) moreCard.style.display='flex';
@@ -1609,6 +1653,7 @@ function shortKey(s){
 
 async function toggleShortLike(ctx){
   const me=currentProfileKey();
+  let likedBy=[];
   if(ctx.type==='user'){
     const store=ctx.store||'mercado/midiasUsuarios';
     const media=toArr(await fbRead(store));
@@ -1618,13 +1663,18 @@ async function toggleShortLike(ctx){
     set.has(me)?set.delete(me):set.add(me);
     media[idx].likedBy=[...set];
     await fbWrite(store,media);
-    return [...set];
+    likedBy=[...set];
+  }else{
+    const path=SHORTS_DB+'/'+ctx.key+'/likedBy';
+    const set=new Set(toArr(await fbRead(path)));
+    set.has(me)?set.delete(me):set.add(me);
+    await fbWrite(path,[...set]);
+    likedBy=[...set];
   }
-  const path=SHORTS_DB+'/'+ctx.key+'/likedBy';
-  const set=new Set(toArr(await fbRead(path)));
-  set.has(me)?set.delete(me):set.add(me);
-  await fbWrite(path,[...set]);
-  return [...set];
+  // Guarda também a ordem temporal das curtidas para aprender sequências entre clientes.
+  // Um valor null remove o registro quando a pessoa desfaz a curtida.
+  await fbWrite(SHORTS_DB+'/'+ctx.key+'/likedAt/'+me,likedBy.includes(me)?Date.now():null);
+  return likedBy;
 }
 
 function musicOptionsHtml(tracks){
@@ -1641,8 +1691,9 @@ function attachShortExtras(card,ctx){
   bar.innerHTML=`
     <button type="button" class="short-act" data-act="like">${likedBy.includes(currentProfileKey())?'❤️':'♡'} <span>${likedBy.length}</span></button>
     <button type="button" class="short-act" data-act="comments">💬 <span>${comments.length}</span></button>
-    <button type="button" class="short-act" data-act="share">↗ Compartilhar</button>
-    ${ctx.hasVideoEl?'<button type="button" class="short-act" data-act="music">🎵 Música</button>':''}`;
+    <button type="button" class="short-act" data-act="share" aria-label="Compartilhar">↗</button>
+    ${ctx.hasVideoEl?'<button type="button" class="short-act" data-act="download" aria-label="Baixar vídeo">⬇</button>':''}
+    ${ctx.hasVideoEl?'<button type="button" class="short-act" data-act="music" aria-label="Música">🎵</button>':''}`;
   card.appendChild(bar);
 
   const panels={};
@@ -1665,6 +1716,16 @@ function attachShortExtras(card,ctx){
     }catch(err){console.error(err);alert('Não foi possível curtir agora. Tente de novo.');}
   });
 
+  // DUPLO TOQUE NA TELA DO VÍDEO PARA CURTIR
+  let lastShortTap=0;
+  const likeFromDoubleTap=(ev)=>{
+    if(ev.target.closest('.short-actions,.short-panel,.short-sound-toggle,button,a,input,select'))return;
+    const now=Date.now();
+    if(now-lastShortTap<320){lastShortTap=0;bar.querySelector('[data-act="like"]').click();}
+    else lastShortTap=now;
+  };
+  card.addEventListener('touchend',likeFromDoubleTap,{passive:true});
+
   // COMPARTILHAR
   bar.querySelector('[data-act="share"]').addEventListener('click',async()=>{
     const data={title:ctx.title||'Vídeo',text:(ctx.title||'Vídeo')+' — Mercado Família Flores',url:ctx.shareUrl};
@@ -1678,6 +1739,19 @@ function attachShortExtras(card,ctx){
     }
   });
 
+  // BAIXAR VÍDEO (arquivos de vídeo diretos)
+  if(ctx.hasVideoEl){
+    bar.querySelector('[data-act="download"]').addEventListener('click',async()=>{
+      try{
+        const video=card.querySelector('video');
+        const url=video?.currentSrc||video?.src||video?.dataset.src||ctx.shareUrl;
+        const a=document.createElement('a');a.href=url;a.download=(ctx.title||'video').replace(/[^a-z0-9-_]/gi,'_')+'.mp4';a.rel='noopener';
+        document.body.appendChild(a);a.click();a.remove();
+      }catch(err){window.open(ctx.shareUrl,'_blank','noopener');}
+    });
+  }
+
+
   // COMENTÁRIOS
   const cPanel=document.createElement('div');
   cPanel.className='short-panel';cPanel.style.display='none';
@@ -1687,18 +1761,17 @@ function attachShortExtras(card,ctx){
   function renderComments(){
     const box=cPanel.querySelector('[data-clist]');
     countEl.textContent=comments.length;
-    if(!comments.length){box.innerHTML='<div class="short-help">Ainda não há comentários. Seja o primeiro!</div>';return;}
+    if(!comments.length){box.innerHTML='<div class="short-help">Ainda não há comentários. Escolha uma sugestão:</div><div data-crecs style="display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 12px;"><button type="button" class="btn btn-outline">🔥 Muito bom!</button><button type="button" class="btn btn-outline">👏👏</button><button type="button" class="btn btn-outline">Gostei do vídeo!</button><button type="button" class="btn btn-outline">Quero mais vídeos!</button></div>';box.querySelectorAll('[data-crecs] button').forEach(b=>b.addEventListener('click',()=>{cPanel.querySelector('[data-cinput]').value=b.textContent;sendComment();}));return;}
     box.innerHTML=comments.map(c=>{
       const can=c.owner===currentProfileKey()||currentEmployee;
-      return `<div class="short-comment">${can?`<button type="button" data-cdel="${escShort(c.id)}" aria-label="Excluir">✕</button>`:''}<strong>${escShort(c.name||'Cliente')}</strong><small>${escShort(new Date(c.at||Date.now()).toLocaleDateString('pt-BR'))}</small><div>${escShort(c.text)}</div></div>`;
+      return `<div class="short-comment" ${can?`data-cdel="${escShort(c.id)}" title="Mantenha pressionado para excluir"`:''}><strong>${escShort(c.name||'Cliente')}</strong><small>${escShort(new Date(c.at||Date.now()).toLocaleDateString('pt-BR'))}</small><div>${escShort(c.text)}</div></div>`;
     }).join('');
-    box.querySelectorAll('[data-cdel]').forEach(b=>b.addEventListener('click',async()=>{
-      try{
-        const path=SHORTS_DB+'/'+ctx.key+'/comments';
-        const cur=toArr(await fbRead(path)).filter(c=>c.id!==b.dataset.cdel);
-        await fbWrite(path,cur);comments=cur;renderComments();
-      }catch(err){alert('Não foi possível excluir.');}
-    }));
+    box.querySelectorAll('[data-cdel]').forEach(el=>{
+      let holdTimer=null;
+      const cancel=()=>{if(holdTimer){clearTimeout(holdTimer);holdTimer=null;}};
+      el.addEventListener('pointerdown',()=>{holdTimer=setTimeout(async()=>{holdTimer=null;if(!confirm('Excluir este comentário?'))return;try{const path=SHORTS_DB+'/'+ctx.key+'/comments';const cur=toArr(await fbRead(path)).filter(c=>c.id!==el.dataset.cdel);await fbWrite(path,cur);comments=cur;renderComments();}catch(err){alert('Não foi possível excluir.');}},650);});
+      ['pointerup','pointerleave','pointercancel'].forEach(ev=>el.addEventListener(ev,cancel));
+    });
   }
   renderComments();
   async function sendComment(){
@@ -1726,7 +1799,7 @@ function attachShortExtras(card,ctx){
       selIdx=tracks.findIndex(t=>t.url===ctx.music.url);
       if(selIdx<0){tracks.push({url:ctx.music.url,title:ctx.music.title||'Música do vídeo'});selIdx=tracks.length-1;}
     }
-    const audio=new Audio();audio.loop=true;audio.preload='auto';audio.volume=0.5;
+    const audio=new Audio();audio.loop=true;audio.preload='none';audio.volume=0.5;
     shortsAudios.push(audio);
     function setTrack(i){
       selIdx=i;
@@ -1783,7 +1856,7 @@ function detectShortPlatform(url){
 }
 function shortMediaHtml(url,platform){
   if(platform==='upload'){
-    return `<video src="${escShort(url)}#t=0.1" autoplay muted playsinline loop preload="metadata" style="width:100%;height:min(78svh,720px);max-height:78svh;object-fit:contain;background:#000;display:block;border-radius:12px;"></video>`;
+    return `<video data-src="${escShort(url)}" playsinline muted loop preload="none" style="width:100%;height:100%;object-fit:cover;background:#000;display:block;"></video>`;
   }
   const embedUrl=getEmbedUrl(url,platform);
   if(embedUrl){
@@ -1804,10 +1877,26 @@ async function loadShorts(){
     try{allMedia=toArr(await fbRead('mercado/midiasUsuarios'));}catch(e){}
     try{legacy=toArr(await fbRead('mercado/videosUsuarios'));}catch(e){}
     try{inter=(await fbRead(SHORTS_DB))||{};}catch(e){}
-    const tracks=allMedia.filter(m=>m.kind==='audio'&&m.url).map(m=>({url:m.url,section:musicSectionOf(m),title:(m.title||'Música')+(m.ownerName?' · '+m.ownerName:'')}));
+    // Vídeos publicados no Flores Music (Supabase) — somente leitura.
+    let floresMusicVideos=[];
+    try{
+      {
+        const fmClient=getFloresMusicClient();
+        const {data,error}=await fmClient.from('media').select('id,title,type,storage_path,created_at,deleted_at').eq('type','video').is('deleted_at',null).order('created_at',{ascending:false});
+        if(error)throw error;
+        floresMusicVideos=(data||[]).filter(x=>x.storage_path).map(x=>({
+          id:x.id,title:x.title||'Vídeo',date:x.created_at||'',
+          url:fmClient.storage.from(FLORES_MUSIC_BUCKET).getPublicUrl(x.storage_path).data.publicUrl
+        }));
+      }
+    }catch(fmError){console.warn('Não foi possível carregar vídeos do Flores Music:',fmError);}
+    let floresMusicTracks=[];
+    try{const fmClient=getFloresMusicClient();const {data,error}=await fmClient.from('media').select('id,title,type,storage_path,created_at,deleted_at').eq('type','audio').is('deleted_at',null).order('created_at',{ascending:false});if(error)throw error;floresMusicTracks=(data||[]).filter(x=>x.storage_path).map(x=>({url:fmClient.storage.from(FLORES_MUSIC_BUCKET).getPublicUrl(x.storage_path).data.publicUrl,section:'Flores Music',title:(x.title||'Música')+' · Flores Music'}));}catch(e){console.warn('Falha ao carregar músicas do Flores Music',e);}
+    const tracks=[...allMedia.filter(m=>m.kind==='audio'&&m.url).map(m=>({url:m.url,section:musicSectionOf(m),title:(m.title||'Música')+(m.ownerName?' · '+m.ownerName:'')})),...floresMusicTracks];
 
     // Tudo que for vídeo entra no Short, igual aos vídeos do site
     const items=[];
+    floresMusicVideos.forEach(v=>items.push({store:null,platform:'upload',url:v.url,title:v.title,owner:null,ownerName:'Flores Music',date:v.date,key:'fm_'+String(v.id).replace(/[^A-Za-z0-9_-]/g,'_'),likedBy:null,id:v.id,source:'flores-music'}));
     adminShorts.forEach(s=>items.push({store:null,s,platform:s.platform||detectShortPlatform(s.url),url:s.url,title:s.title,owner:null,ownerName:'',date:s.date||'',key:shortKey(s),likedBy:null}));
     allMedia.forEach(m=>{
       if(!m.url)return;
@@ -1827,7 +1916,66 @@ async function loadShorts(){
       const id=v.id||shortKey(v);
       items.push({store:'mercado/videosUsuarios',m:v,platform:pf,url:v.url,title:v.title,owner:v.owner,ownerName:v.ownerName,date:v.createdAt||v.date||'',key:'l'+String(id).replace(/[^A-Za-z0-9_-]/g,'_'),likedBy:v.likedBy,id});
     });
-    items.sort((x,y)=>String(y.date).localeCompare(String(x.date)));
+    // Curtidas reais e histórico temporal de cada vídeo.
+    items.forEach(it=>{
+      const saved=inter[it.key]||{};
+      it._likes=toArr(it.store?it.likedBy:saved.likedBy);
+      it._likedAt=(saved.likedAt&&typeof saved.likedAt==='object')?saved.likedAt:{};
+      it._id=String(it.key);
+    });
+
+    // Recomendação colaborativa com sequência: se dois clientes curtiram o mesmo
+    // vídeo, recomenda ao segundo os próximos vídeos curtidos pelo primeiro.
+    const me=currentProfileKey();
+    const myLiked=new Set(items.filter(it=>it._likes.includes(me)).map(it=>it._id));
+    const customerSequences={};
+    items.forEach(it=>{
+      it._likes.forEach(user=>{
+        if(!user||user===me)return;
+        const at=Number(it._likedAt[user]||0);
+        (customerSequences[user]||(customerSequences[user]=[])).push({id:it._id,at,likes:it._likes});
+      });
+    });
+    Object.values(customerSequences).forEach(seq=>seq.sort((a,b)=>{
+      if(a.at&&b.at)return a.at-b.at;
+      if(a.at)return -1;
+      if(b.at)return 1;
+      return 0;
+    }));
+    const recommendationScores={};
+    Object.entries(customerSequences).forEach(([user,seq])=>{
+      const shared=seq.filter(x=>myLiked.has(x.id)).length;
+      if(!shared)return;
+      // Clientes com mais curtidas em comum têm maior peso.
+      const similarity=shared/(shared+1);
+      seq.forEach((entry,index)=>{
+        if(myLiked.has(entry.id))return;
+        let sequenceBoost=0;
+        // Dá prioridade a vídeos curtidos depois de um vídeo em comum.
+        for(let j=0;j<index;j++){
+          if(myLiked.has(seq[j].id)){
+            sequenceBoost=Math.max(sequenceBoost,1/(index-j));
+          }
+        }
+        recommendationScores[entry.id]=(recommendationScores[entry.id]||0)+similarity*(1+sequenceBoost*2);
+      });
+    });
+    items.forEach(it=>{
+      it._recommendScore=myLiked.has(it._id)?-1:(recommendationScores[it._id]||0);
+      // Pequena variação para não deixar o feed sempre idêntico; relevância prevalece.
+      it._rank=it._recommendScore*10+Math.random()*1.5;
+    });
+    items.sort((a,b)=>b._rank-a._rank);
+    // Evita começar com o mesmo vídeo da visita anterior, quando houver alternativas.
+    try{
+      const first=items[0]&&items[0]._id;
+      const previous=sessionStorage.getItem('mff_last_short_first');
+      if(first&&first===previous&&items.length>1){
+        const swap=items.findIndex((x,i)=>i>0&&x._id!==previous);
+        if(swap>0)[items[0],items[swap]]=[items[swap],items[0]];
+      }
+      if(items[0])sessionStorage.setItem('mff_last_short_first',items[0]._id);
+    }catch(e){}
 
     const list=$('shortsList');
     const empty=$('shortsEmpty');
@@ -1842,31 +1990,64 @@ async function loadShorts(){
     items.forEach(it=>{
       const i=inter[it.key]||{};
       const card=document.createElement('div');
-      card.style.cssText='background:var(--paper);border:1px solid var(--line);border-radius:14px;overflow:hidden;';
-      card.innerHTML=`
-        ${shortMediaHtml(it.url,it.platform)}`;
+      card.className='short-feed-card';
+      card.innerHTML=`${shortMediaHtml(it.url,it.platform)}<div class="short-feed-title">${escShort(it.title||'Vídeo')}<span class="short-feed-owner">${escShort(it.ownerName||'Mercado Família Flores')}</span></div>`;
+      const shortVideo=card.querySelector('video');
+      if(shortVideo){
+        if(typeof window.__shortsSoundEnabled==='undefined')window.__shortsSoundEnabled=true;
+        const soundBtn=document.createElement('button');
+        soundBtn.type='button';soundBtn.className='short-sound-toggle';
+        soundBtn.textContent=window.__shortsSoundEnabled?'🔊 Som ligado':'🔇 Ativar som';
+        shortVideo.muted=false;shortVideo.volume=1;
+        soundBtn.setAttribute('aria-label','Ativar ou silenciar o som dos vídeos');
+        soundBtn.addEventListener('click',()=>{
+          window.__shortsSoundEnabled=!window.__shortsSoundEnabled;
+          document.querySelectorAll('#shortsList .short-sound-toggle').forEach(b=>b.textContent=window.__shortsSoundEnabled?'🔊 Som ligado':'🔇 Som desligado');
+          // O botão só altera o áudio; nunca inicia a reprodução.
+          document.querySelectorAll('#shortsList video').forEach(v=>{v.muted=!window.__shortsSoundEnabled;if(window.__shortsSoundEnabled)v.volume=1;});
+        });
+        card.appendChild(soundBtn);
+      }
       const ctx={
         type:it.store?'user':'admin',store:it.store,id:it.id,key:it.key,owner:it.owner,title:it.title,shareUrl:it.url,
         hasVideoEl:it.platform==='upload',tracks,music:i.music,
-        likedBy:toArr(it.store?it.likedBy:i.likedBy),comments:toArr(i.comments)
+        likedBy:it._likes,comments:toArr(i.comments)
       };
       attachShortExtras(card,ctx);
       list.appendChild(card);
-      const video=card.querySelector('video');
-      if(video){video.muted=true;video.autoplay=true;video.playsInline=true;video.loop=true;video.preload='metadata';}
     });
-    // Autoplay apenas quando o Short está visível; pausa os demais.
-    if(window.__shortsAutoObserver)window.__shortsAutoObserver.disconnect();
-    window.__shortsAutoObserver=new IntersectionObserver(entries=>{
+    // Carrega e reproduz automaticamente somente o vídeo visível.
+    // Ao mudar de Short, pausa e libera o arquivo anterior para reduzir memória e rede.
+    if(window.__mercadoShortObserver)window.__mercadoShortObserver.disconnect();
+    window.__mercadoShortObserver=new IntersectionObserver(entries=>{
       entries.forEach(entry=>{
-        const v=entry.target;
-        if(entry.isIntersecting&&entry.intersectionRatio>=0.55){
-          document.querySelectorAll('#shortsList video').forEach(other=>{if(other!==v)other.pause();});
-          v.muted=true;v.play().catch(()=>{});
-        }else{v.pause();}
+        const v=entry.target.querySelector('video');
+        if(!v)return;
+        if(entry.isIntersecting&&entry.intersectionRatio>=0.65){
+          list.querySelectorAll('video').forEach(other=>{
+            if(other===v)return;
+            other.pause();
+            if(other.hasAttribute('src')){other.removeAttribute('src');other.load();}
+          });
+          if(!v.hasAttribute('src')&&v.dataset.src){v.src=v.dataset.src;v.load();}
+          v.muted=!window.__shortsSoundEnabled;
+          if(window.__shortsSoundEnabled)v.volume=1;
+          // Reproduz automaticamente e mantém o vídeo em loop.
+          v.dataset.finishedShort='';v.play().catch(()=>{});
+        }else if(entry.intersectionRatio<0.25){
+          v.pause();
+          v.dataset.finishedShort='';
+          if(v.hasAttribute('src')){v.removeAttribute('src');v.load();}
+        }
       });
-    },{threshold:[0,0.55,0.8]});
-    document.querySelectorAll('#shortsList video').forEach(v=>window.__shortsAutoObserver.observe(v));
+    },{root:list,threshold:[0,0.25,0.65,1]});
+    list.querySelectorAll('.short-feed-card').forEach(card=>{
+      const v=card.querySelector('video');
+      if(v){
+        v.addEventListener('ended',()=>{v.dataset.finishedShort='';v.currentTime=0;v.play().catch(()=>{});});
+        window.__mercadoShortObserver.observe(card);
+      }
+    });
   }catch(e){ console.error(e); }
 }
 
@@ -2302,14 +2483,17 @@ function stopScanner(){
 
 /* Google Join */
 function parseJwt(token){try{const b=token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');const j=decodeURIComponent(atob(b).split('').map(c=>'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)).join(''));return JSON.parse(j);}catch(e){return null;}}
-async function onGoogleSignIn(response){
+function onGoogleSignIn(response){
   const profile=parseJwt(response.credential);if(!profile||!profile.email)return;
-  pendingGoogleProfile={name:profile.name||'',email:profile.email,picture:profile.picture||''};
-  showCustomerProfile(pendingGoogleProfile);
-  // Se já existe cadastro, entrar direto; pedir dados somente no primeiro acesso.
   const existing=customers.find(c=>String(c.email||'').toLowerCase()===String(profile.email).toLowerCase());
-  if(existing){pendingGoogleProfile={...pendingGoogleProfile,...existing};closeModal();showCustomerProfile(pendingGoogleProfile);return;}
-  openExtraInfoModal();
+  if(existing){
+    pendingGoogleProfile={...existing,name:profile.name||existing.name||'',email:profile.email,picture:profile.picture||existing.picture||''};
+    saveCustomerSession(pendingGoogleProfile);showCustomerProfile(pendingGoogleProfile);closeModal();
+    alert('Bem-vindo de volta! Seu cadastro já está salvo.');
+    return;
+  }
+  pendingGoogleProfile={name:profile.name||'',email:profile.email,picture:profile.picture||''};
+  showCustomerProfile(pendingGoogleProfile);openExtraInfoModal();
 }
 $('moreProfileConnectBtn').addEventListener('click',()=>{ $('joinUsBtn').click(); });
 $('joinUsBtn').addEventListener('click',()=>{
@@ -2326,7 +2510,8 @@ function openExtraInfoModal(){
     const phone=$('custPhone').value.trim();if(!phone){$('custError').textContent='Informe um telefone.';return;}
     const record={...pendingGoogleProfile,phone,address:$('custAddress').value.trim(),registeredAt:new Date().toISOString()};
     customers=customers.filter(c=>c.email!==pendingGoogleProfile.email);customers.push(record);
-    await saveCustomers();renderCustomersTable();closeModal();alert('Cadastro concluído!');
+    pendingGoogleProfile=record;saveCustomerSession(record);
+    await saveCustomers();renderCustomersTable();showCustomerProfile(record);closeModal();alert('Cadastro concluído!');
   });
 }
 
@@ -2466,7 +2651,7 @@ loadAll();
 </script>
 <script>
 if('serviceWorker' in navigator){
-  const sw = `const CACHE='mercado-v2';const S=['./','/index.html'];
+  const sw = `const CACHE='mercado-v3-shorts-login';const S=['./','/index.html'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(S).catch(()=>{})));self.skipWaiting();});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==CACHE).map(x=>caches.delete(x)))));self.clients.claim();});
 self.addEventListener('fetch',e=>{if(e.request.url.includes('firebaseio.com')||e.request.url.includes('googleapis.com')||e.request.url.includes('anthropic.com'))return;e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(res=>{if(res&&res.status===200){const c=res.clone();caches.open(CACHE).then(ca=>ca.put(e.request,c));}return res;}).catch(()=>caches.match('/index.html'))));});`;
