@@ -269,14 +269,14 @@ html::-webkit-scrollbar-thumb:hover { background: #999; }
 #viewShorts #shortsList .short-sound-toggle{position:absolute;top:16px;right:14px;z-index:5;border:1px solid rgba(255,255,255,.65);border-radius:22px;padding:9px 13px;background:rgba(0,0,0,.62);color:#fff;font-weight:700;font-size:13px;cursor:pointer;backdrop-filter:blur(4px);}
 #viewShorts #shortsList .short-sound-toggle:active{transform:scale(.96);}
 #viewShorts #shortsList .short-feed-owner{display:block;font-size:12px;font-weight:500;margin-top:5px;}
-#viewShorts #shortsList .short-actions{position:absolute;right:12px;bottom:30px;z-index:3;display:flex;flex-direction:column;gap:12px;background:transparent;border:0;padding:0;}
+#viewShorts #shortsList .short-actions{position:absolute;right:6px;bottom:30px;z-index:3;display:flex;flex-direction:column;gap:12px;background:transparent;border:0;padding:0;}
 #viewShorts #shortsList .short-act{background:rgba(0,0,0,.62);color:#fff;border:1px solid rgba(255,255,255,.45);border-radius:26px;min-width:52px;min-height:52px;padding:12px 13px;font-size:21px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;box-shadow:0 2px 10px rgba(0,0,0,.25);}
 #viewShorts #shortsList .short-act span{font-size:12px;font-weight:700;}
 #viewShorts #shortsList .short-panel{position:absolute;z-index:5;left:8px;right:72px;bottom:18px;max-height:45%;overflow:auto;background:rgba(255,255,255,.97);border-radius:12px;padding:12px;}
 #viewShorts #shortsEmpty{background:#fff;}
 #viewShorts #shortsList{height:calc(100dvh - 76px)!important;min-height:480px;}
 #viewShorts .company-footer{display:none;}
-@media(max-width:600px){#viewShorts #shortsList .short-feed-card{height:calc(100dvh - 68px);min-height:0;}#viewShorts #shortsList .short-feed-card video{object-fit:cover;}#viewShorts #shortsList .short-actions{right:10px;bottom:22px;gap:13px;}#viewShorts #shortsList .short-act{min-width:54px;min-height:54px;font-size:22px;}}
+@media(max-width:600px){#viewShorts #shortsList .short-feed-card{height:calc(100dvh - 68px);min-height:0;}#viewShorts #shortsList .short-feed-card video{object-fit:cover;}#viewShorts #shortsList .short-actions{right:4px;bottom:22px;gap:13px;}#viewShorts #shortsList .short-act{min-width:54px;min-height:54px;font-size:22px;}}
 </style>
 </head>
 <body>
@@ -1691,7 +1691,7 @@ function attachShortExtras(card,ctx){
     <button type="button" class="short-act" data-act="like">${likedBy.includes(currentProfileKey())?'❤️':'♡'} <span>${likedBy.length}</span></button>
     <button type="button" class="short-act" data-act="comments">💬 <span>${comments.length}</span></button>
     <button type="button" class="short-act" data-act="share">↗ Compartilhar</button>
-    ${ctx.hasVideoEl?'<button type="button" class="short-act" data-act="music">🎵 Música</button>':''}`;
+    ${ctx.hasVideoEl?'<button type="button" class="short-act" data-act="download">⬇ <span>Baixar</span></button><button type="button" class="short-act" data-act="music">🎵 Música</button>':''}`;
   card.appendChild(bar);
 
   const panels={};
@@ -1714,9 +1714,17 @@ function attachShortExtras(card,ctx){
     }catch(err){console.error(err);alert('Não foi possível curtir agora. Tente de novo.');}
   });
 
+  // BAIXAR vídeo (quando o servidor permite download)
+  const downloadBtn=bar.querySelector('[data-act="download"]');
+  if(downloadBtn)downloadBtn.addEventListener('click',async()=>{
+    try{const a=document.createElement('a');a.href=ctx.shareUrl;a.download=(ctx.title||'video').replace(/[^a-z0-9-_]/gi,'_')+'.mp4';a.target='_blank';a.rel='noopener';document.body.appendChild(a);a.click();a.remove();}
+    catch(err){window.open(ctx.shareUrl,'_blank','noopener');}
+  });
+
   // COMPARTILHAR
-  bar.querySelector('[data-act="share"]').addEventListener('click',async()=>{
-    const data={title:ctx.title||'Vídeo',text:(ctx.title||'Vídeo')+' — Mercado Família Flores',url:ctx.shareUrl};
+  bar.querySelector('[data-act="share"]')?.addEventListener('click',async()=>{
+    const appUrl='https://mercadofamiliafloresrengifo.vercel.app';
+    const data={title:ctx.title||'Vídeo',text:(ctx.title||'Vídeo')+' — Mercado Família Flores',url:appUrl+'/?short='+encodeURIComponent(ctx.shareUrl)};
     try{
       if(navigator.share){await navigator.share(data);}
       else{await navigator.clipboard.writeText(ctx.shareUrl);alert('Link copiado!');}
@@ -1990,26 +1998,24 @@ async function loadShorts(){
       attachShortExtras(card,ctx);
       list.appendChild(card);
     });
-    // Carrega somente o vídeo visível; não inicia reprodução automática.
-    // Ao mudar de Short, pausa e libera o arquivo anterior para reduzir memória e rede.
+    // Reprodução automática e carregamento otimizado: vídeo visível + próximo vídeo.
+    // Os demais são pausados e seus recursos liberados.
     if(window.__mercadoShortObserver)window.__mercadoShortObserver.disconnect();
     window.__mercadoShortObserver=new IntersectionObserver(entries=>{
       entries.forEach(entry=>{
         const v=entry.target.querySelector('video');
         if(!v)return;
         if(entry.isIntersecting&&entry.intersectionRatio>=0.65){
-          list.querySelectorAll('video').forEach(other=>{
-            if(other===v)return;
+          const cards=[...list.querySelectorAll('.short-feed-card')];const idx=cards.indexOf(entry.target);
+          cards.forEach((c,j)=>{const other=c.querySelector('video');if(!other||other===v)return;
             other.pause();
-            if(other.hasAttribute('src')){other.removeAttribute('src');other.load();}
+            if(j===idx+1){if(!other.hasAttribute('src')&&other.dataset.src){other.src=other.dataset.src;other.preload='auto';other.load();}}
+            else if(j!==idx-1&&other.hasAttribute('src')){other.removeAttribute('src');other.load();}
           });
           if(!v.hasAttribute('src')&&v.dataset.src){v.src=v.dataset.src;v.load();}
-          v.muted=!window.__shortsSoundEnabled;
-          if(window.__shortsSoundEnabled)v.volume=1;
-        }else if(entry.intersectionRatio<0.25){
-          v.pause();
-          if(v.hasAttribute('src')){v.removeAttribute('src');v.load();}
-        }
+          v.muted=!window.__shortsSoundEnabled;v.volume=window.__shortsSoundEnabled?1:v.volume;
+          v.play().catch(()=>{});
+        }else if(entry.intersectionRatio<0.25){v.pause();}
       });
     },{root:list,threshold:[0,0.25,0.65,1]});
     list.querySelectorAll('.short-feed-card').forEach(card=>{
