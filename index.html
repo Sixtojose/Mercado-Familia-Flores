@@ -1372,15 +1372,23 @@ async function moveMusicSection(id){
 }
 async function loadCommunityMusic(){
   const box=$('communityMusicList');if(!box)return;
-  const media=toArr(await fbRead('mercado/midiasUsuarios'));
+  box.innerHTML='<p class="profile-empty">Carregando músicas…</p>';
+  let media=[];try{media=toArr(await fbRead('mercado/midiasUsuarios'));}catch(e){}
   const tracks=media.filter(m=>m.kind==='audio'&&m.url);
-  if(!tracks.length){box.innerHTML='<p class="profile-empty">Ainda não há músicas publicadas.</p>';return;}
-  const groups={};
-  tracks.forEach(m=>{const n=musicSectionOf(m);(groups[n]=groups[n]||[]).push(m);});
+  let supabaseTracks=[];
+  try{
+    const client=getFloresMusicClient();
+    const {data,error}=await client.from('media').select('id,title,type,storage_path,created_at,deleted_at').eq('type','audio').is('deleted_at',null).order('created_at',{ascending:false});
+    if(error)throw error;
+    supabaseTracks=(data||[]).filter(x=>x.storage_path).map(x=>({id:'fm_'+x.id,url:client.storage.from(FLORES_MUSIC_BUCKET).getPublicUrl(x.storage_path).data.publicUrl,title:x.title||'Música',section:'Flores Music',owner:null,createdAt:x.created_at,source:'supabase'}));
+  }catch(e){console.warn('Falha ao carregar músicas do Supabase:',e);}
+  const allTracks=[...tracks,...supabaseTracks];
+  if(!allTracks.length){box.innerHTML='<p class="profile-empty">Ainda não há músicas publicadas.</p>';return;}
+  const groups={};allTracks.forEach(m=>{const n=musicSectionOf(m);(groups[n]=groups[n]||[]).push(m);});
   const names=Object.keys(groups).sort((x,y)=>x==='Sem seção'?1:y==='Sem seção'?-1:x.localeCompare(y,'pt-BR'));
   musicQueue=[];names.forEach(n=>musicQueue.push(...groups[n]));
-  box.innerHTML=names.map(n=>`<details open class="music-section"><summary>📂 ${escShort(n)} <small>(${groups[n].length})</small></summary>${groups[n].map(m=>`<div class="music-track" data-track="${escShort(m.id)}"><strong>${escShort(m.title||'Música')}</strong><span style="display:flex;gap:6px;"><button type="button" data-play-track="${escShort(m.id)}" aria-label="Tocar">▶</button>${canEditMusic(m)?`<button type="button" data-move-track="${escShort(m.id)}" aria-label="Mudar de seção" title="Mudar de seção">📂</button>`:''}</span></div>`).join('')}</details>`).join('');
-  box.querySelectorAll('[data-play-track]').forEach(b=>b.addEventListener('click',()=>{const m=tracks.find(x=>String(x.id)===b.dataset.playTrack);if(m)playCommunityTrack(m);}));
+  box.innerHTML=names.map(n=>`<details open class="music-section"><summary>📂 ${escShort(n)} <small>(${groups[n].length})</small></summary>${groups[n].map(m=>`<div class="music-track" data-track="${escShort(m.id)}"><strong>${escShort(m.title||'Música')}</strong><span style="display:flex;gap:6px;"><button type="button" data-play-track="${escShort(m.id)}" aria-label="Tocar">▶</button>${canEditMusic(m)&&!m.source?`<button type="button" data-move-track="${escShort(m.id)}" aria-label="Mudar de seção" title="Mudar de seção">📂</button>`:''}</span></div>`).join('')}</details>`).join('');
+  box.querySelectorAll('[data-play-track]').forEach(b=>b.addEventListener('click',()=>{const m=allTracks.find(x=>String(x.id)===b.dataset.playTrack);if(m)playCommunityTrack(m);}));
   box.querySelectorAll('[data-move-track]').forEach(b=>b.addEventListener('click',()=>moveMusicSection(b.dataset.moveTrack)));
 }
 
